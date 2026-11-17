@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0",
     "postgres": "^3.4.5",
     "zod": "^3.25.76"
   },

@@ -1,7 +1,9 @@
 {
-  "//": "Import map used by Supabase Edge Functions (Deno). Keeps bare specifiers identical to Node so src/ runs in both.",
   "imports": {
     "zod": "npm:zod@3.25.76",
-    "postgres": "npm:postgres@3.4.5"
+    "zod/v4": "npm:zod@3.25.76/v4",
+    "postgres": "npm:postgres@3.4.5",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@1.10.0",
+    "@anthropic-ai/sdk/": "npm:/@anthropic-ai/sdk@1.10.0/"
   }
 }

@@ -5,6 +5,7 @@ import type { PersonalityService } from '../../application/personality/personali
 import type { LocalDate } from '../../domain/dates.ts';
 import type { Repos } from '../../infrastructure/db/repositories/index.ts';
 import type { Sql } from '../../infrastructure/db/sql.ts';
+import type { AiClient } from '../../infrastructure/ai/claude.ts';
 import type { LineClient } from '../../infrastructure/line/client.ts';
 import type { Message } from '../../infrastructure/line/messages.ts';
 
@@ -21,6 +22,8 @@ export interface AppDeps {
   fixedCosts: FixedCostService;
   finance: FinanceService;
   personality: PersonalityService;
+  /** Optional Claude layer for messages the rule-based parser cannot understand. */
+  ai?: AiClient;
   line: LineClient;
   clock: () => Date;
   log: Logger;

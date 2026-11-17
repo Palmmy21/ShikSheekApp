@@ -3,6 +3,7 @@
  * Parse → validate → confirmation card. Nothing is saved from text alone.
  */
 import { parseIntent, type ParseResult } from '../../../application/parser/intent-parser.ts';
+import { aiIntentToParseResult, isSafeChatLine } from '../../../application/personality/ai-assist.ts';
 import { parseBareAmount, parseFixedCost, parseGoal } from '../../../application/parser/setup-parsers.ts';
 import { ValidationError } from '../../../application/services/transaction-service.ts';
 import { defaultCategoryFor } from '../../../domain/entities/categories.ts';
@@ -225,6 +226,19 @@ export async function handleText(ctx: HandlerContext, input: string): Promise<Me
     const handled = await handleFlow(ctx, flow, trimmed);
     if (handled) return handled;
     await ctx.deps.repos.conversation.clear(ctx.userId);
+  }
+
+  // Optional AI fallback: only for text the rules couldn't read. Its output becomes the same kind of
+  // proposal the rules produce (amount must literally appear in the text) and still needs confirmation.
+  if (parsed.kind === 'unknown' && ctx.deps.ai && trimmed.length <= 500) {
+    const intent = await ctx.deps.ai.interpret(trimmed);
+    if (intent) {
+      if (intent.kind === 'chitchat' && isSafeChatLine(intent.reply)) {
+        return [mascotSays(intent.reply, 'happy', [pb('ภาพรวม', 'dashboard'), pb('วิธีใช้', 'help')])];
+      }
+      const fromAi = aiIntentToParseResult(intent, trimmed, ctx.today);
+      if (fromAi.kind !== 'unknown') return handleParsed(ctx, fromAi);
+    }
   }
   return handleParsed(ctx, parsed);
 }

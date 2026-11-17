@@ -12,7 +12,9 @@ const schema = z.object({
   DATA_EXPORT_URL: z.string().url().optional(),
   CRON_SECRET: z.string().min(24, 'CRON_SECRET must be at least 24 characters').optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('claude-haiku-5-5'),
+  AI_MODEL: z.string().default('claude-opus-5-5'),
+  /** 'true' = AI also writes the mascot's one-liners (adds latency to every reply). */
+  AI_PERSONALITY: z.enum(['true', 'false']).default('false'),
 });
 
 export type AppConfig = z.infer<typeof schema>;
