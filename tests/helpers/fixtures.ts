@@ -56,6 +56,7 @@ export function fixedCost(partial: Partial<FixedCost> = {}): FixedCost {
     endDate: null,
     remindDaysBefore: 1,
     status: 'active',
+    activeFrom: '2026-01-01',
     ...partial,
   };
 }

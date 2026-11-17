@@ -45,6 +45,9 @@ create table fixed_costs (
   end_date           date check (end_date is null or end_date >= anchor_date),
   remind_days_before smallint not null default 1 check (remind_days_before between 0 and 14),
   status             text not null default 'active' check (status in ('active', 'paused')),
+  -- occurrences are generated only on/after this date (set on create and on resume), so resuming
+  -- a paused cost never resurrects bills from the paused period
+  active_from        date not null default current_date,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
   deleted_at         timestamptz

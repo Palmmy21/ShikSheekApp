@@ -68,6 +68,8 @@ export interface FixedCost {
   endDate: LocalDate | null;
   remindDaysBefore: number;
   status: FixedCostStatus;
+  /** Occurrences are generated only on/after this date (set on create and resume). */
+  activeFrom: LocalDate;
 }
 
 export interface FixedCostOccurrence {
