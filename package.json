@@ -10,7 +10,12 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:mascots": "node scripts/build-mascots.ts",
+    "build:rich-menu": "node scripts/build-rich-menu.ts",
+    "setup:rich-menu": "node scripts/setup-rich-menu.ts",
+    "upload:assets": "node scripts/upload-assets.ts",
+    "validate:flex": "node scripts/validate-flex.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.10.0",

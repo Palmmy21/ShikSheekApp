@@ -8,7 +8,7 @@ Source of truth: `supabase/migrations/`. All money columns are `BIGINT` **satang
 |---|---|---|
 | `users` | One row per LINE user (`line_user_id` = `U` + 32 hex). Settings + notification prefs. | `cycle_start_day` 1–28 |
 | `transactions` | Income / expense / saving records. Soft delete via `deleted_at`. | `amount_satang > 0`; only `expense` may link `fixed_cost_occurrence_id`; only `saving` may link `savings_goal_id`; **one live payment per occurrence** (partial unique index) |
-| `fixed_costs` | Recurring obligations: weekly / monthly / yearly / custom (every N days). | `end_date >= anchor_date`; status `active`/`paused` |
+| `fixed_costs` | Recurring obligations: weekly / monthly / yearly / custom (every N days). | `end_date >= anchor_date`; status `active`/`paused`; `active_from` = no bills generated before it (create/resume) |
 | `fixed_cost_occurrences` | One bill per period per fixed cost. | **`UNIQUE (fixed_cost_id, occurrence_key)`** → generation is idempotent |
 | `savings_goals` | Target + monthly reservation. Saved amount is derived from transactions. | |
 | `budgets` | Monthly limit per category (`total` = overall cap). | `UNIQUE (user_id, category_id)` |
@@ -17,6 +17,7 @@ Source of truth: `supabase/migrations/`. All money columns are `BIGINT` **satang
 | `conversation_states` | Multi-step chat flows (e.g. "waiting for amount"). | one per user |
 | `webhook_events` | LINE `webhookEventId`s already processed. | PK → redeliveries are ignored |
 | `job_runs` | Scheduler idempotency: one row per `(job, run_key, user)`. | PK |
+| `data_export_tokens` | One-time export links (SHA-256 hash only, 15-minute expiry). | PK on hash |
 
 ## Ownership & isolation
 
