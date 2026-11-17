@@ -1,0 +1,16 @@
+# Supabase project configuration (CLI). Run `npx supabase link --project-ref <ref>` once.
+project_id = "shiksheek"
+
+[db]
+major_version = 15
+
+# LINE, pg_cron and download links cannot send a Supabase JWT; each function authenticates itself
+# (LINE signature / CRON_SECRET / one-time token).
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.scheduler]
+verify_jwt = false
+
+[functions.data-export]
+verify_jwt = false
