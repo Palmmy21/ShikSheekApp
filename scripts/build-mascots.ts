@@ -31,7 +31,7 @@ const CROPS: Record<string, [number, number, number, number]> = {
   planning: [335, 880, 280, 262],
   smart: [645, 870, 290, 272],
   discipline: [960, 870, 285, 272],
-  encouraging: [30, 230, 500, 610], // the big thumbs-up chicken
+  encouraging: [30, 230, 478, 610], // the big thumbs-up chicken
 };
 
 const SIZE = 512;

@@ -51,6 +51,7 @@ scripts/                build-mascots, build-rich-menu, setup-rich-menu, upload-
 assets/                 mascot/, rich-menu/, branding/, fonts/
 tests/                  unit/, integration/ (PGlite + webhook end-to-end)
 docs/                   deployment, line-setup, troubleshooting, database, decisions, mascot
+web/                    landing page (Next.js static export) — see web/README.md
 ```
 
 ## เริ่มต้น (ในเครื่อง)
