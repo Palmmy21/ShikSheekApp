@@ -1,0 +1,24 @@
+{
+  "name": "shiksheek",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ShikSheek — LINE-first personal finance assistant with a chicken mascot",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
