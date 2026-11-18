@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import type { CategoryRef, Money } from '@/lib/liff-api';
 import { thaiDate } from '@/lib/liff-api';
+import { CategoryIcon } from '@/components/icons';
 
 export function DailyBars({ data, today }: { data: Array<{ date: string; expense: Money }>; today: string }) {
   const [active, setActive] = useState<number | null>(null);
@@ -97,7 +98,8 @@ export function CategoryBars({ items, total }: { items: Array<CategoryRef & { am
       {items.map((c) => (
         <li key={c.id}>
           <div className="catbars__row">
-            <span>{c.emoji} {c.label}</span>
+            <CategoryIcon id={c.id} size={30} />
+            <span className="catbars__label">{c.label}</span>
             <b>{c.amount.text}</b>
           </div>
           <div className="catbars__track" title={`${c.label} ${c.amount.text}`}>

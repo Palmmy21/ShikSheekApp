@@ -1,7 +1,9 @@
 'use client';
 /** Bottom sheet for adding or editing a transaction. Amount is sent as text and parsed exactly server-side. */
 import { useEffect, useMemo, useState } from 'react';
+import { Check, Trash2, X } from 'lucide-react';
 import type { Category, Txn } from '@/lib/liff-api';
+import { CategoryIcon } from '@/components/icons';
 
 export interface TxnInput {
   type: 'income' | 'expense';
@@ -24,7 +26,10 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       <button className="sheet__backdrop" aria-label="ปิด" onClick={onClose} />
       <div className="sheet__panel">
         <div className="sheet__grab" />
-        <h2>{title}</h2>
+        <div className="sheet__head">
+          <h2>{title}</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="ปิด"><X size={20} /></button>
+        </div>
         {children}
       </div>
     </div>
@@ -108,8 +113,8 @@ export function TxnSheet({
           <div className="catgrid">
             {cats.map((c) => (
               <button type="button" key={c.id} className={`catpick${categoryId === c.id ? ' is-on' : ''}`} onClick={() => setCategoryId(c.id)} aria-pressed={categoryId === c.id}>
-                <span aria-hidden="true">{c.emoji}</span>
-                {c.label}
+                <CategoryIcon id={c.id} size={34} />
+                <span>{c.label}</span>
               </button>
             ))}
           </div>
@@ -123,10 +128,10 @@ export function TxnSheet({
           <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} />
         </label>
         {error && <p className="form__error" role="alert">{error}</p>}
-        <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'กำลังบันทึก…' : editing ? 'บันทึกการแก้ไข' : '✅ บันทึก'}</button>
+        <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'กำลังบันทึก…' : <><Check size={18} /> {editing ? 'บันทึกการแก้ไข' : 'บันทึก'}</>}</button>
         {editing && onDelete && (
           <button type="button" className="btn btn--danger-ghost btn--block" disabled={busy} onClick={async () => { setBusy(true); try { await onDelete(editing); onClose(); } finally { setBusy(false); } }}>
-            🗑️ ลบรายการนี้
+            <Trash2 size={16} /> ลบรายการนี้
           </button>
         )}
       </form>

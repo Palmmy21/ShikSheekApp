@@ -30,7 +30,7 @@ export const MASCOT_EXPRESSIONS = [
 export type MascotExpression = (typeof MASCOT_EXPRESSIONS)[number];
 
 /** Bump when art changes so LINE's image cache refreshes. */
-export const MASCOT_ASSET_VERSION = '1';
+export const MASCOT_ASSET_VERSION = '2';
 
 let assetBaseUrl = '';
 

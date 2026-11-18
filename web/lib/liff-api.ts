@@ -105,8 +105,12 @@ export class ApiError extends Error {
 
 let ready: Promise<void> | null = null;
 
+/** `?demo=1` renders the UI with sample data and never calls LINE or the API (design preview). */
+export const DEMO = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('demo');
+
 /** Initialise LIFF and make sure the user is logged in (redirects to LINE Login if needed). */
 export function initLiff(): Promise<void> {
+  if (DEMO) return Promise.resolve();
   ready ??= (async () => {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) {
@@ -133,6 +137,10 @@ function relogin(): never {
 }
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (DEMO) {
+    const { demoApi } = await import('./liff-demo');
+    return demoApi<T>(path, init.method ?? 'GET');
+  }
   await initLiff();
   const token = liff.getIDToken();
   if (!token || tokenExpired(token)) relogin();
