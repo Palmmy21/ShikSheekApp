@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  CalendarClock, Check, ChevronLeft, ChevronRight, House, Pause, Pencil, PiggyBank, Play, Plus,
+  BellRing, CalendarClock, Check, ChevronLeft, ChevronRight, House, Pause, Pencil, PiggyBank, Play, Plus,
   ReceiptText, Search, Settings, SkipForward, Target, Trash2, type LucideIcon,
 } from 'lucide-react';
 import {
@@ -518,17 +518,43 @@ function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me)
   };
   async function save(patch: object) {
     try {
-      const r = await api<Pick<Me, 'cycleStartDay' | 'notifications'>>('/settings', { method: 'PATCH', body: patch });
+      const r = await api<Pick<Me, 'cycleStartDay' | 'notifications' | 'autoRecord'>>('/settings', { method: 'PATCH', body: patch });
       onSaved({ ...me, ...r });
       toast('บันทึกแล้ว');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'ไม่สำเร็จ');
     }
   }
+  const [testing, setTesting] = useState(false);
+  async function testPush() {
+    setTesting(true);
+    try {
+      await api('/notifications/test', { method: 'POST' });
+      toast('ส่งแล้ว ดูในแชท LINE ได้เลย');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'ส่งไม่สำเร็จ');
+    } finally {
+      setTesting(false);
+    }
+  }
   return (
     <>
       <section className="card">
-        <h3>การแจ้งเตือน</h3>
+        <h3>การจด</h3>
+        <ul className="toggles">
+          <li>
+            <label>
+              <span>จดอัตโนมัติ<small>รายการที่มั่นใจบันทึกทันที ไม่ต้องกดยืนยัน (ยกเลิกได้เสมอ)</small></span>
+              <input type="checkbox" role="switch" checked={me.autoRecord} onChange={(e) => save({ autoRecord: e.target.checked })} />
+            </label>
+          </li>
+        </ul>
+      </section>
+      <section className="card">
+        <div className="card__head">
+          <h3>การแจ้งเตือน</h3>
+          <button className="link" onClick={testPush} disabled={testing}><BellRing size={15} /> {testing ? 'กำลังส่ง…' : 'ส่งทดสอบ'}</button>
+        </div>
         <ul className="toggles">
           {(Object.keys(labels) as Array<keyof Me['notifications']>).map((k) => (
             <li key={k}>

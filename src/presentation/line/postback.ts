@@ -32,6 +32,9 @@ export const ACTION_PARAMS = {
   txn_undo: z.object({ id: uuid }),
   txn_set_type: z.object({ id: uuid, t: z.enum(['expense', 'income']) }), // slip direction fix
   import_confirm: z.object({ id: uuid }), // statement import draft
+  multi_confirm: z.object({ id: uuid }), // several items from one message
+  multi_undo: z.object({ id: uuid }), // undo a batch saved by auto-record (holder id)
+  auto_record_toggle: z.object({ on: z.enum(['1', '0']) }),
 
   // fixed costs
   fc_add: z.object({}),

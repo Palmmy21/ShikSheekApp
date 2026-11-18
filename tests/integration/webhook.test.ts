@@ -182,8 +182,8 @@ describe('transaction via chat (PRD flow: parse → validate → confirm → sav
   });
 
   it('ambiguous input asks instead of saving', async () => {
-    const msgs = await say(U1, 'ข้าว 50 กาแฟ 40');
-    expect(altTexts(msgs)[0]).toContain('ทีละรายการ');
+    const msgs = await say(U1, 'ข้าว 50 40');
+    expect(altTexts(msgs)[0]).toContain('ทุกจำนวนต้องมีชื่อ');
     expect(await deps.repos.pending.get(U1, '00000000-0000-0000-0000-000000000000')).toBeNull();
   });
 

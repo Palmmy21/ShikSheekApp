@@ -2,7 +2,13 @@
  * Free-text messages: multi-step flow states first, then the Thai intent parser.
  * Parse → validate → confirmation card. Nothing is saved from text alone.
  */
-import { parseIntent, type ParseResult } from '../../../application/parser/intent-parser.ts';
+import { type ParseResult, type TransactionProposal } from '../../../application/parser/intent-parser.ts';
+import { parseMessage, type MessageParse } from '../../../application/parser/message-parser.ts';
+import type { TransactionDraft } from '../../../application/services/transaction-service.ts';
+import { addDays } from '../../../domain/dates.ts';
+import { periodForDate, previousPeriod } from '../../../domain/period.ts';
+import { getCategory } from '../../../domain/entities/categories.ts';
+import { autoRecordMessage, deletedMessage } from '../flex/transactions.ts';
 import { aiIntentToParseResult, isSafeChatLine } from '../../../application/personality/ai-assist.ts';
 import { parseBareAmount, parseFixedCost, parseGoal } from '../../../application/parser/setup-parsers.ts';
 import { ValidationError } from '../../../application/services/transaction-service.ts';
@@ -30,6 +36,10 @@ import {
   showReportsMenu,
   showUpcomingBills,
   showWeekSummary,
+  proposeMulti,
+  sendTestPush,
+  showCategorySpend,
+  showTodayList,
 } from './views.ts';
 
 const SETUP_DRAFT_TTL = 30;
@@ -153,7 +163,7 @@ async function handleParsed(ctx: HandlerContext, parsed: ParseResult): Promise<M
       ];
     case 'ambiguous':
       if (parsed.reason === 'multiple_amounts') {
-        return [mascotSays('เจอหลายจำนวนในข้อความเดียว ชิกชิกงง 😵 ส่งทีละรายการนะ เช่น "ข้าว 50" แล้วค่อย "กาแฟ 40"', 'thinking')];
+        return [mascotSays('จดหลายรายการได้นะ แต่ทุกจำนวนต้องมีชื่อกำกับ เช่น "ข้าว 50 กาแฟ 40" หรือขึ้นบรรทัดใหม่ทีละรายการ', 'thinking')];
       }
       if (parsed.reason === 'saving_needs_goal') {
         const goals = await deps.finance.goals(userId);
@@ -214,9 +224,79 @@ async function handleParsed(ctx: HandlerContext, parsed: ParseResult): Promise<M
   return [helpMessage()];
 }
 
+const toDraft = (p: TransactionProposal): TransactionDraft => ({
+  type: p.type,
+  amountSatang: p.amountSatang,
+  categoryId: p.categoryId,
+  categoryConfident: p.categoryConfident,
+  note: p.note,
+  txnDate: p.txnDate,
+  source: 'chat',
+});
+
+/** Commands, multi-item entries and extra questions (everything parseMessage adds on top of parseIntent). */
+async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise<Message[] | null> {
+  const { deps, userId, today } = ctx;
+  switch (m.kind) {
+    case 'multi':
+      return proposeMulti(ctx, m.items.map(toDraft));
+    case 'command':
+      switch (m.command) {
+        case 'delete_last': {
+          const last = await deps.txns.last(userId);
+          if (!last) return [mascotSays('ยังไม่มีรายการให้ลบเลยน้า', 'thinking')];
+          const removed = await deps.txns.remove(userId, last.id);
+          return removed ? [deletedMessage(removed)] : [mascotSays('ลบไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'worried')];
+        }
+        case 'edit_last': {
+          const last = await deps.txns.last(userId);
+          if (!last) return [mascotSays('ยังไม่มีรายการให้แก้เลยน้า', 'thinking')];
+          try {
+            const t = await deps.txns.editAmount(userId, last.id, m.amountSatang, today);
+            if (!t) return [mascotSays('แก้ไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'worried')];
+            return [mascotSays(`แก้ "${t.note ?? getCategory(t.categoryId).labelTh}" เป็น ${formatBaht(t.amountSatang)} แล้ว ✓`, 'happy', [pb('ดูประวัติ', 'txn_history', { p: 0 }), pb('ภาพรวม', 'dashboard')])];
+          } catch (e) {
+            if (e instanceof ValidationError) return [mascotSays(e.message, 'thinking')];
+            throw e;
+          }
+        }
+        case 'set_budget':
+          await deps.finance.setBudget(userId, m.categoryId, m.amountSatang);
+          return [mascotSays(`ตั้งงบ ${m.categoryId === 'total' ? 'รวมทั้งเดือน' : getCategory(m.categoryId).labelTh} ${formatBaht(m.amountSatang)} ต่อเดือนแล้ว ✓`, 'discipline'), ...(await showBudgets(ctx))];
+        case 'auto_record':
+          await deps.repos.users.setAutoRecord(userId, m.on);
+          return [autoRecordMessage(m.on)];
+        case 'test_push':
+          return sendTestPush(ctx);
+      }
+      break;
+    case 'extra_query':
+      switch (m.query) {
+        case 'yesterday_spent':
+          return showDaySummary(ctx, addDays(today, -1));
+        case 'last_month_summary': {
+          const user = await deps.repos.users.get(userId);
+          return showMonthSummary(ctx, previousPeriod(periodForDate(today, user?.cycleStartDay ?? 1)).key);
+        }
+        case 'today_list':
+          return showTodayList(ctx);
+        case 'category_spend':
+          return showCategorySpend(ctx, m.categoryId);
+      }
+  }
+  return null;
+}
+
 export async function handleText(ctx: HandlerContext, input: string): Promise<Message[]> {
   const trimmed = input.trim();
-  const parsed = parseIntent(trimmed, ctx.today);
+  const message = parseMessage(trimmed, ctx.today);
+  const parsed: ParseResult = message.kind === 'multi' || message.kind === 'command' || message.kind === 'extra_query' ? { kind: 'unknown' } : message;
+  if (message !== parsed) {
+    // flows that expect a bare amount must not swallow a command or multi-item message
+    await ctx.deps.repos.conversation.clear(ctx.userId);
+    const handled = await handleMessageLevel(ctx, message);
+    if (handled) return handled;
+  }
 
   // "ยกเลิก" always escapes any flow
   if (parsed.kind === 'query' && parsed.intent === 'cancel') return handleParsed(ctx, parsed);

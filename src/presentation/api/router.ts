@@ -85,6 +85,7 @@ const GoalCreate = z.object({ name: z.string().trim().min(1).max(60), target: ba
 const AmountBody = z.object({ amount: bahtText.optional() });
 const SettingsPatch = z.object({
   cycleStartDay: z.number().int().min(1).max(28).optional(),
+  autoRecord: z.boolean().optional(),
   notifications: z
     .object({ dailySummary: z.boolean(), weeklySummary: z.boolean(), monthlySummary: z.boolean(), billReminders: z.boolean(), budgetAlerts: z.boolean() })
     .partial()
@@ -144,7 +145,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     // ── profile & meta ──
     if (is('GET', 'me')) {
       const u = (await deps.repos.users.get(userId))!;
-      return json(200, { displayName: u.displayName, cycleStartDay: u.cycleStartDay, notifications: u.notifications, today });
+      return json(200, { displayName: u.displayName, cycleStartDay: u.cycleStartDay, notifications: u.notifications, autoRecord: u.autoRecord, today });
     }
     if (is('GET', 'categories')) return json(200, CATEGORIES.map((c) => ({ id: c.id, kind: c.kind, label: c.labelTh, emoji: c.emoji })));
 
@@ -211,6 +212,8 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
       };
       validateDraft(next, today);
       const t = await deps.repos.transactions.update(userId, current.id, { type: next.type, amountSatang: next.amountSatang, categoryId: next.categoryId, note: next.note, txnDate: next.txnDate });
+      // learn from category corrections made in the app as well
+      if (b.categoryId && b.categoryId !== current.categoryId && next.note) await deps.repos.categoryRules.learn(userId, next.note, b.categoryId);
       return json(200, txnJson(t!));
     }
     if (is('DELETE', 'transactions', '*')) {
@@ -327,11 +330,24 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     if (is('PATCH', 'settings')) {
       const b = await body(req, SettingsPatch);
       if (b.cycleStartDay) await deps.repos.users.setCycleStartDay(userId, b.cycleStartDay);
+      if (b.autoRecord !== undefined) await deps.repos.users.setAutoRecord(userId, b.autoRecord);
       for (const [k, v] of Object.entries(b.notifications ?? {})) {
         if (typeof v === 'boolean') await deps.repos.users.setNotification(userId, k as keyof NotificationPrefs, v);
       }
       const u = (await deps.repos.users.get(userId))!;
-      return json(200, { cycleStartDay: u.cycleStartDay, notifications: u.notifications });
+      return json(200, { cycleStartDay: u.cycleStartDay, notifications: u.notifications, autoRecord: u.autoRecord });
+    }
+
+    // ── notifications ──
+    if (is('POST', 'notifications', 'test')) {
+      try {
+        await deps.line.push(userId, [{ type: 'text', text: '🔔 แจ้งเตือนทดสอบจากชิกชิก ถ้าเห็นข้อความนี้ แปลว่าสรุปรายวันและเตือนบิลจะส่งถึงคุณได้แน่นอน' }]);
+        return json(200, { ok: true });
+      } catch (err) {
+        const status = (err as { status?: number }).status ?? 0;
+        deps.log.error('test_push_failed', { user: redactUserId(userId), status });
+        throw new HttpError(502, status === 429 ? 'โควตา push ของ LINE OA เดือนนี้หมดแล้ว' : 'LINE ไม่ยอมส่งแจ้งเตือนถึงบัญชีนี้ ลองเพิ่มเพื่อน OA ก่อน');
+      }
     }
 
     return json(404, { error: 'not found' });

@@ -53,6 +53,8 @@ export interface UserProfile {
   notifications: NotificationPrefs;
   onboarding: OnboardingState;
   isFollowing: boolean;
+  /** Save confident entries immediately (with undo) instead of asking for confirmation. */
+  autoRecord: boolean;
   createdAt: string;
 }
 

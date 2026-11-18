@@ -20,9 +20,11 @@ import {
   payConfirmMessage,
 } from '../flex/fixed-costs.ts';
 import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '../flex/settings.ts';
-import { askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, startEntryMessage } from '../flex/transactions.ts';
+import { askAmountMessage, autoRecordMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, startEntryMessage } from '../flex/transactions.ts';
 import {
+  afterMultiSaved,
   afterTransactionSaved,
+  MULTI_SAVED_KIND,
   categoryLabel,
   showBudgets,
   showDashboard,
@@ -88,6 +90,8 @@ export const postbackHandlers: Handlers = {
     try {
       const d = await ctx.deps.txns.updateDraft(ctx.userId, id, { categoryId: c }, ctx.today);
       if (!d) return [staleActionMessage()];
+      // learn: next time this description gets this category automatically
+      if (d.payload.note) await ctx.deps.repos.categoryRules.learn(ctx.userId, d.payload.note, c);
       return [confirmTransactionMessage(d.id, d.payload, ctx.today)];
     } catch (e) {
       if (e instanceof ValidationError) return say(e.message, 'thinking');
@@ -276,6 +280,22 @@ export const postbackHandlers: Handlers = {
   cancel_flow: async (ctx) => {
     await ctx.deps.repos.conversation.clear(ctx.userId);
     return say('โอเค ไม่เป็นไรจ้า', 'happy');
+  },
+  multi_confirm: async (ctx, { id }) => {
+    const r = await ctx.deps.txns.confirmMulti(ctx.userId, id, ctx.today);
+    if (r.status === 'stale') return say('รายการชุดนี้บันทึกหรือยกเลิกไปแล้วน้า', 'smart');
+    if (r.status === 'invalid') return say(`${r.error.message} ลองพิมพ์ใหม่นะ`, 'thinking');
+    return afterMultiSaved(ctx, r.transactions);
+  },
+  multi_undo: async (ctx, { id }) => {
+    const holder = await ctx.deps.repos.pending.resolve<{ ids: string[] }>(ctx.userId, id, 'cancelled');
+    if (!holder || holder.kind !== MULTI_SAVED_KIND) return say('ยกเลิกชุดนี้ไม่ได้แล้ว (อาจยกเลิกไปแล้ว หรือนานเกิน 1 วัน) ลบทีละรายการได้ในประวัติ', 'thinking');
+    const n = await ctx.deps.txns.removeMany(ctx.userId, holder.payload.ids);
+    return say(`ยกเลิก ${n} รายการแล้ว`, 'happy');
+  },
+  auto_record_toggle: async (ctx, { on }) => {
+    await ctx.deps.repos.users.setAutoRecord(ctx.userId, on === '1');
+    return [autoRecordMessage(on === '1')];
   },
   draft_cancel: async (ctx, { id }) => {
     await ctx.deps.repos.pending.resolve(ctx.userId, id, 'cancelled');

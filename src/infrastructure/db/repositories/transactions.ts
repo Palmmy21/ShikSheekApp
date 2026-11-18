@@ -157,6 +157,15 @@ export function transactionRepo(sql: Sql) {
       return rows.map(mapTransaction);
     },
 
+    /** Most recently *recorded* live transactions (by creation time, not transaction date). */
+    async listRecentlyCreated(userId: string, limit: number): Promise<Transaction[]> {
+      const rows = await sql.query<TxnRow>(
+        `select ${COLUMNS} from transactions where user_id = $1 and deleted_at is null order by created_at desc limit $2`,
+        [userId, limit],
+      );
+      return rows.map(mapTransaction);
+    },
+
     async countLive(userId: string): Promise<number> {
       const rows = await sql.query<{ n: unknown }>(
         'select count(*) as n from transactions where user_id = $1 and deleted_at is null',

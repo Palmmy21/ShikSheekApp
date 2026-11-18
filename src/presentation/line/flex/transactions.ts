@@ -174,3 +174,87 @@ export function deletedMessage(t: Transaction): Message {
     quickReply([pb('↩️ เอากลับมา', 'txn_undo', { id: t.id }, { displayText: 'เอากลับมา' }), pb('ภาพรวม', 'dashboard')]),
   );
 }
+
+export interface MultiTotals {
+  expenseSatang: Satang;
+  incomeSatang: Satang;
+}
+
+function itemLines(items: Array<{ type: Transaction['type']; amountSatang: Satang; categoryId: string; note: string | null; txnDate: LocalDate; unsure?: boolean }>, today: LocalDate) {
+  return items.map((d) => {
+    const cat = getCategory(d.categoryId);
+    return hbox(
+      [
+        txt(cat.emoji, { flex: 0, size: 'md' }),
+        vbox([
+          txt(d.note ?? cat.labelTh, { size: 'sm', weight: 'bold', wrap: false }),
+          txt(`${cat.labelTh}${d.unsure ? ' · ไม่แน่ใจหมวด' : ''}${d.txnDate !== today ? ` · ${dateLabel(d.txnDate, today)}` : ''}`, { size: 'xxs', color: d.unsure ? BRAND.deepRed : BRAND.muted }),
+        ], { flex: 6 }),
+        txt(signed(d.type, d.amountSatang), { flex: 4, align: 'end', size: 'sm', weight: 'bold', color: amountColor(d.type), gravity: 'center' }),
+      ],
+      { spacing: 'md', paddingTop: '4px', paddingBottom: '4px' },
+    );
+  });
+}
+
+function totalsRows(t: MultiTotals) {
+  return [
+    ...(t.expenseSatang ? [row('รายจ่ายรวม', formatBaht(t.expenseSatang), { bold: true })] : []),
+    ...(t.incomeSatang ? [row('รายรับรวม', `+${formatBaht(t.incomeSatang)}`, { bold: true, valueColor: BRAND.green })] : []),
+  ];
+}
+
+/** One card for several items from one message; one tap saves them all (atomically). */
+export function multiConfirmMessage(draftId: string, items: TransactionDraft[], today: LocalDate, totals: MultiTotals): FlexMessage {
+  const anyUnsure = items.some((d) => !d.categoryConfident);
+  return flex(
+    `จด ${items.length} รายการนี้ใช่ไหม?`,
+    bubble({
+      header: header('ยืนยันหลายรายการ', `${items.length} รายการ`, mascotUrl('thinking')),
+      body: [
+        card([...itemLines(items.map((d) => ({ ...d, unsure: !d.categoryConfident })), today), sep({ margin: 'sm' }), ...totalsRows(totals)]),
+        ...(anyUnsure ? [txt('รายการที่ไม่แน่ใจหมวดจะถูกจดเป็น "อื่นๆ" แก้หมวดทีหลังได้ในแอป', { size: 'xs', color: BRAND.muted })] : []),
+      ],
+      footer: [
+        button(pb(`✅ บันทึกทั้ง ${items.length} รายการ`, 'multi_confirm', { id: draftId }, { displayText: 'บันทึกทั้งหมด' })),
+        button(pb('ยกเลิก', 'draft_cancel', { id: draftId }, { displayText: 'ยกเลิก' }), 'link'),
+      ],
+    }),
+  );
+}
+
+/** Shown after several items were saved (confirm tap or auto-record), with undo for the whole batch. */
+export function multiSavedMessage(undoId: string | null, txns: Transaction[], today: LocalDate, totals: MultiTotals, comment: string, availableSatang: Satang): FlexMessage {
+  return flex(
+    `บันทึก ${txns.length} รายการแล้ว`,
+    bubble({
+      header: header('บันทึกแล้ว ✓', `${txns.length} รายการ`, mascotUrl('happy')),
+      body: [
+        txt(comment),
+        card([...itemLines(txns, today), sep({ margin: 'sm' }), ...totalsRows(totals), row('ใช้ได้อีก (รอบนี้)', formatBaht(availableSatang), { bold: true, valueColor: availableSatang < 0 ? BRAND.red : BRAND.brown })]),
+      ],
+      footer: [
+        hbox([
+          button(pb('ดูภาพรวม', 'dashboard'), 'primary', { flex: 1 }),
+          ...(undoId ? [button(pb('↩️ ยกเลิกทั้งหมด', 'multi_undo', { id: undoId }, { displayText: 'ยกเลิกทั้งหมด' }), 'secondary', { flex: 1 })] : []),
+        ], { spacing: 'sm' }),
+      ],
+    }),
+  );
+}
+
+export function autoRecordMessage(on: boolean): FlexMessage {
+  return flex(
+    on ? 'เปิดจดอัตโนมัติแล้ว' : 'ปิดจดอัตโนมัติแล้ว',
+    bubble({
+      size: 'kilo',
+      header: header('จดอัตโนมัติ', on ? 'เปิดแล้ว' : 'ปิดแล้ว', mascotUrl(on ? 'smart' : 'thinking')),
+      body: [
+        txt(on
+          ? 'ต่อไปรายการที่ชิกชิกมั่นใจ (มีจำนวนเงินและรู้หมวด) จะบันทึกทันทีโดยไม่ต้องกดยืนยัน มีปุ่มลบ/ยกเลิกให้ทุกครั้ง รายการที่ไม่แน่ใจยังถามก่อนเหมือนเดิม'
+          : 'ต่อไปชิกชิกจะขึ้นการ์ดให้กดยืนยันก่อนบันทึกทุกครั้ง'),
+      ],
+      footer: [button(pb(on ? 'ปิดจดอัตโนมัติ' : 'เปิดจดอัตโนมัติ', 'auto_record_toggle', { on: on ? '0' : '1' }), 'secondary')],
+    }),
+  );
+}

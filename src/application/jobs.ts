@@ -83,7 +83,15 @@ async function sendOnce(
   } catch (err) {
     report.failed++;
     await deps.repos.jobRuns.release(job, runKey, userId).catch(() => {});
-    deps.log.error('job_send_failed', { job, user: redactUserId(userId), error: err instanceof Error ? err.message : String(err) });
+    const e = err as { status?: number; body?: string; message?: string };
+    deps.log.error('job_send_failed', {
+      job,
+      user: redactUserId(userId),
+      status: e.status ?? null,
+      line: e.body ? String(e.body).slice(0, 200) : null, // LINE's error text (no message content)
+      hint: e.status === 429 ? 'monthly push quota exhausted' : e.status === 403 ? 'channel not allowed to push / user blocked' : null,
+      error: e.message ?? String(err),
+    });
   }
 }
 

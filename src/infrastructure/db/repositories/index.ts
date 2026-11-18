@@ -5,6 +5,7 @@ import { fixedCostRepo } from './fixed-costs.ts';
 import { transactionRepo } from './transactions.ts';
 import { userRepo } from './users.ts';
 import { webhookEventRepo } from './webhook-events.ts';
+import { categoryRuleRepo } from './category-rules.ts';
 
 export function createRepos(sql: Sql) {
   return {
@@ -17,6 +18,7 @@ export function createRepos(sql: Sql) {
     conversation: conversationRepo(sql),
     jobRuns: jobRunRepo(sql),
     webhookEvents: webhookEventRepo(sql),
+    categoryRules: categoryRuleRepo(sql),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;

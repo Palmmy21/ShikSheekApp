@@ -12,11 +12,12 @@ interface UserRow {
   notify_budget_alerts: boolean;
   onboarding: OnboardingState;
   is_following: boolean;
+  auto_record: boolean;
   created_at: unknown;
 }
 
 const COLUMNS = `line_user_id, display_name, cycle_start_day, notify_daily_summary, notify_weekly_summary,
-  notify_monthly_summary, notify_bill_reminders, notify_budget_alerts, onboarding, is_following, created_at`;
+  notify_monthly_summary, notify_bill_reminders, notify_budget_alerts, onboarding, is_following, auto_record, created_at`;
 
 const PREF_COLUMNS: Record<keyof NotificationPrefs, string> = {
   dailySummary: 'notify_daily_summary',
@@ -40,6 +41,7 @@ function map(r: UserRow): UserProfile {
     },
     onboarding: r.onboarding,
     isFollowing: r.is_following,
+    autoRecord: r.auto_record === true,
     createdAt: toIso(r.created_at),
   };
 }
@@ -87,6 +89,10 @@ export function userRepo(sql: Sql) {
         [userId],
       );
       return rows[0]?.v ?? false;
+    },
+
+    async setAutoRecord(userId: string, on: boolean): Promise<void> {
+      await sql.query('update users set auto_record = $2 where line_user_id = $1', [userId, on]);
     },
 
     async setNotification(userId: string, key: keyof NotificationPrefs, value: boolean): Promise<void> {

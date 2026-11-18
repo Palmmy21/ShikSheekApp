@@ -91,6 +91,7 @@ export interface MonthReport {
 export interface Me {
   displayName: string | null;
   cycleStartDay: number;
+  autoRecord: boolean;
   notifications: Record<'dailySummary' | 'weeklySummary' | 'monthlySummary' | 'billReminders' | 'budgetAlerts', boolean>;
   today: string;
 }

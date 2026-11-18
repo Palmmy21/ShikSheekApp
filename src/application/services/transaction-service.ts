@@ -188,6 +188,93 @@ export function createTransactionService(sql: Sql, repos: Repos = createRepos(sq
       const rows = await repos.transactions.listRecent(userId, pageSize + 1, page * pageSize);
       return { items: rows.slice(0, pageSize), hasMore: rows.length > pageSize };
     },
+
+    /**
+     * Auto-record: validate and save immediately (the caller only uses this for confident entries
+     * and always shows an undo button). Duplicate slip references are still refused.
+     */
+    async saveDirect(userId: string, d: TransactionDraft, today: LocalDate): Promise<ConfirmResult> {
+      try {
+        validateDraft(d, today);
+      } catch (e) {
+        if (e instanceof ValidationError) return { status: 'invalid', error: e };
+        throw e;
+      }
+      if (d.externalRef) {
+        const existing = await repos.transactions.findByExternalRef(userId, d.externalRef);
+        if (existing) return { status: 'duplicate', existing };
+      }
+      try {
+        const transaction = await repos.transactions.insert({
+          userId, type: d.type, amountSatang: d.amountSatang, categoryId: d.categoryId, note: d.note,
+          txnDate: d.txnDate, source: d.source, savingsGoalId: d.savingsGoalId ?? null, externalRef: d.externalRef ?? null,
+        });
+        return { status: 'saved', transaction };
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') return { status: 'duplicate', existing: null };
+        throw e;
+      }
+    },
+
+    /** Several items from one message, waiting for one confirm tap. */
+    async createMultiDraft(userId: string, items: TransactionDraft[], today: LocalDate): Promise<PendingAction<{ items: TransactionDraft[] }>> {
+      if (items.length < 2) throw new ValidationError('items', 'ต้องมีอย่างน้อย 2 รายการ');
+      for (const d of items) validateDraft(d, today);
+      await repos.pending.cancelAllPending(userId, MULTI_DRAFT_KIND);
+      return repos.pending.create(userId, MULTI_DRAFT_KIND, { items }, DRAFT_TTL_MINUTES);
+    },
+
+    /** Atomic: every item is saved, or none. A second tap gets `stale`. */
+    async confirmMulti(userId: string, id: string, today: LocalDate): Promise<{ status: 'saved'; transactions: Transaction[] } | { status: 'stale' } | { status: 'invalid'; error: ValidationError }> {
+      return sql.transaction(async (tx) => {
+        const r = createRepos(tx);
+        const won = await r.pending.resolve<{ items: TransactionDraft[] }>(userId, id, 'confirmed');
+        if (!won || won.kind !== MULTI_DRAFT_KIND) return { status: 'stale' as const };
+        // a ValidationError thrown here rolls back the resolve too (mapped to `invalid` below)
+        for (const d of won.payload.items) validateDraft(d, today);
+        const transactions: Transaction[] = [];
+        for (const d of won.payload.items) {
+          transactions.push(await r.transactions.insert({ userId, type: d.type, amountSatang: d.amountSatang, categoryId: d.categoryId, note: d.note, txnDate: d.txnDate, source: d.source }));
+        }
+        return { status: 'saved' as const, transactions };
+      }).catch((e) => {
+        if (e instanceof ValidationError) return { status: 'invalid' as const, error: e };
+        throw e;
+      });
+    },
+
+    /** Save several confident items at once (auto-record), atomically. */
+    async saveManyDirect(userId: string, items: TransactionDraft[], today: LocalDate): Promise<Transaction[]> {
+      for (const d of items) validateDraft(d, today);
+      return sql.transaction(async (tx) => {
+        const r = createRepos(tx);
+        const out: Transaction[] = [];
+        for (const d of items) out.push(await r.transactions.insert({ userId, type: d.type, amountSatang: d.amountSatang, categoryId: d.categoryId, note: d.note, txnDate: d.txnDate, source: d.source }));
+        return out;
+      });
+    },
+
+    /** Undo several saved items at once (each reverts its bill link like `remove`). */
+    async removeMany(userId: string, ids: string[]): Promise<number> {
+      let n = 0;
+      for (const id of ids) if (await this.remove(userId, id)) n++;
+      return n;
+    },
+
+    async last(userId: string): Promise<Transaction | null> {
+      const [t] = await repos.transactions.listRecentlyCreated(userId, 1);
+      return t ?? null;
+    },
+
+    /** Change the amount of a saved transaction (e.g. "แก้ล่าสุดเป็น 80"). */
+    async editAmount(userId: string, id: string, amountSatang: Satang, today: LocalDate): Promise<Transaction | null> {
+      const current = await repos.transactions.get(userId, id);
+      if (!current || current.deletedAt) return null;
+      validateDraft({ type: current.type, amountSatang, categoryId: current.categoryId, categoryConfident: true, note: current.note, txnDate: current.txnDate, source: current.source, savingsGoalId: current.savingsGoalId }, today);
+      return repos.transactions.update(userId, id, { amountSatang });
+    },
   };
 }
+
+export const MULTI_DRAFT_KIND = 'multi';
 export type TransactionService = ReturnType<typeof createTransactionService>;

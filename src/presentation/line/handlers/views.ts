@@ -4,7 +4,7 @@
  */
 import { addDays, formatThaiShort } from '../../../domain/dates.ts';
 import { previousPeriod } from '../../../domain/period.ts';
-import { getCategory } from '../../../domain/entities/categories.ts';
+import { getCategory, isKnownCategory } from '../../../domain/entities/categories.ts';
 import type { Transaction } from '../../../domain/entities/index.ts';
 import { ValidationError, type TransactionDraft } from '../../../application/services/transaction-service.ts';
 import type { Message } from '../../../infrastructure/line/messages.ts';
@@ -15,7 +15,8 @@ import { mascotSays } from '../flex/common.ts';
 import { budgetsOverviewMessage, budgetWarningMessage, goalsOverviewMessage } from '../flex/budgets-goals.ts';
 import { dashboardMessage, reportsMenuMessage, summaryMessage } from '../flex/dashboard-reports.ts';
 import { fixedCostOverviewMessage, upcomingBillsMessage } from '../flex/fixed-costs.ts';
-import { categoryPickerMessage, confirmTransactionMessage, historyMessage, transactionSavedMessage } from '../flex/transactions.ts';
+import { categoryPickerMessage, confirmTransactionMessage, historyMessage, multiConfirmMessage, multiSavedMessage, transactionSavedMessage } from '../flex/transactions.ts';
+import { formatBaht, sumSatang } from '../../../domain/money.ts';
 import { pb } from '../flex/actions.ts';
 
 export async function showDashboard(ctx: HandlerContext): Promise<Message[]> {
@@ -78,9 +79,40 @@ export async function showHistory(ctx: HandlerContext, page: number): Promise<Me
   return [historyMessage(items, page, hasMore, ctx.today)];
 }
 
-/** Create a draft and show the confirmation card (+ category picker when unsure). */
-export async function proposeTransaction(ctx: HandlerContext, draft: TransactionDraft): Promise<Message[]> {
+/**
+ * Auto-categorisation: (1) the user's own past corrections win; (2) when the rules are unsure and AI is
+ * configured, ask it for a category (validated against the entry type). Amounts are never touched.
+ */
+export async function refineCategory(ctx: HandlerContext, draft: TransactionDraft): Promise<TransactionDraft> {
+  if (draft.type === 'saving' || !draft.note) return draft;
+  const learned = await ctx.deps.repos.categoryRules.match(ctx.userId, draft.note);
+  if (learned && isKnownCategory(learned) && getCategory(learned).kind === draft.type) {
+    return { ...draft, categoryId: learned, categoryConfident: true };
+  }
+  if (!draft.categoryConfident && ctx.deps.ai) {
+    const intent = await ctx.deps.ai.interpret(draft.note).catch(() => null);
+    const c = intent?.category_id;
+    if (c && isKnownCategory(c) && getCategory(c).kind === draft.type) return { ...draft, categoryId: c, categoryConfident: true };
+  }
+  return draft;
+}
+
+/** Confident = safe to save without asking (auto-record mode). */
+export function isConfident(d: TransactionDraft, today: string): boolean {
+  return d.type !== 'saving' && d.categoryConfident && d.txnDate <= today;
+}
+
+/** Create a draft and show the confirmation card (+ category picker when unsure) — or save directly in auto-record mode. */
+export async function proposeTransaction(ctx: HandlerContext, input: TransactionDraft): Promise<Message[]> {
   try {
+    const draft = await refineCategory(ctx, input);
+    const user = await ctx.deps.repos.users.get(ctx.userId);
+    if (user?.autoRecord && isConfident(draft, ctx.today)) {
+      const r = await ctx.deps.txns.saveDirect(ctx.userId, draft, ctx.today);
+      if (r.status === 'saved') return afterTransactionSaved(ctx, r.transaction);
+      if (r.status === 'duplicate') return [mascotSays('สลิป/รายการนี้จดไปแล้ว ชิกชิกไม่บันทึกซ้ำให้นะ', 'smart')];
+      if (r.status === 'invalid') return [mascotSays(`${r.error.message} ลองใหม่อีกครั้งนะ`, 'thinking')];
+    }
     const pending = await ctx.deps.txns.createDraft(ctx.userId, draft, ctx.today);
     let goalName: string | undefined;
     if (draft.savingsGoalId) goalName = (await ctx.deps.repos.goals.get(ctx.userId, draft.savingsGoalId))?.name;
@@ -128,4 +160,74 @@ export async function afterTransactionSaved(ctx: HandlerContext, t: Transaction)
 export function categoryLabel(id: string): string {
   const c = getCategory(id);
   return `${c.emoji} ${c.labelTh}`;
+}
+
+export const MULTI_SAVED_KIND = 'multi_saved';
+
+function multiTotals(items: Array<{ type: string; amountSatang: number }>) {
+  return {
+    expenseSatang: sumSatang(items.filter((i) => i.type === 'expense').map((i) => i.amountSatang)),
+    incomeSatang: sumSatang(items.filter((i) => i.type === 'income').map((i) => i.amountSatang)),
+  };
+}
+
+/** Several items from one message: one confirm card — or, in auto-record mode with all items confident, save at once. */
+export async function proposeMulti(ctx: HandlerContext, inputs: TransactionDraft[]): Promise<Message[]> {
+  const drafts = await Promise.all(inputs.map((d) => refineCategory(ctx, d)));
+  try {
+    const user = await ctx.deps.repos.users.get(ctx.userId);
+    if (user?.autoRecord && drafts.every((d) => isConfident(d, ctx.today))) {
+      const saved = await ctx.deps.txns.saveManyDirect(ctx.userId, drafts, ctx.today);
+      return afterMultiSaved(ctx, saved);
+    }
+    const pending = await ctx.deps.txns.createMultiDraft(ctx.userId, drafts, ctx.today);
+    return [multiConfirmMessage(pending.id, drafts, ctx.today, multiTotals(drafts))];
+  } catch (e) {
+    if (e instanceof ValidationError) return [mascotSays(`${e.message} ลองใหม่อีกครั้งนะ`, 'thinking')];
+    throw e;
+  }
+}
+
+export async function afterMultiSaved(ctx: HandlerContext, saved: Transaction[]): Promise<Message[]> {
+  const holder = await ctx.deps.repos.pending.create(ctx.userId, MULTI_SAVED_KIND, { ids: saved.map((t) => t.id) }, 24 * 60);
+  const dash = await ctx.deps.finance.dashboard(ctx.userId, ctx.today);
+  const messages: Message[] = [
+    multiSavedMessage(holder.id, saved, ctx.today, multiTotals(saved), await ctx.deps.personality.comment('saved_expense', holder.id), dash.available.availableSatang),
+  ];
+  for (const categoryId of new Set(saved.filter((t) => t.type === 'expense').map((t) => t.categoryId))) {
+    for (const alert of await ctx.deps.finance.budgetAlertsFor(ctx.userId, ctx.today, categoryId)) {
+      messages.push(budgetWarningMessage(alert.status, alert.threshold, await ctx.deps.personality.comment(alert.threshold >= 100 ? 'budget_exceeded' : 'budget_warning', `${alert.status.budget.id}:${alert.threshold}`)));
+    }
+  }
+  return messages.slice(0, 5);
+}
+
+/** Send a real push (not a reply) so the user can verify notifications end to end. */
+export async function sendTestPush(ctx: HandlerContext): Promise<Message[]> {
+  const summary = await showDaySummary(ctx, ctx.today);
+  try {
+    await ctx.deps.line.push(ctx.userId, [mascotSays('นี่คือแจ้งเตือนทดสอบจากชิกชิก 🔔 ถ้าเห็นข้อความนี้ แปลว่าสรุปรายวันและเตือนบิลจะส่งถึงคุณได้แน่นอน', 'smart'), ...summary]);
+    return [mascotSays('ส่งแจ้งเตือนทดสอบแล้ว ✓ สรุปรายวันจะมาตอน 21:00 และเตือนบิลตอน 08:00 นะ', 'happy')];
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    ctx.deps.log.error('test_push_failed', { status: status ?? null, error: err instanceof Error ? err.message : String(err) });
+    const why = status === 429 ? 'โควตาข้อความ push ของ LINE OA เดือนนี้หมดแล้ว (ดูได้ใน LINE OA Manager)' : status === 403 || status === 400 ? 'LINE ไม่ยอมให้ส่ง push ถึงบัญชีนี้ (ลองบล็อกแล้วเพิ่มเพื่อนใหม่)' : 'ส่งไม่สำเร็จ ลองใหม่อีกครั้งนะ';
+    return [mascotSays(`ส่งแจ้งเตือนทดสอบไม่ได้: ${why}`, 'worried')];
+  }
+}
+
+export async function showCategorySpend(ctx: HandlerContext, categoryId: string): Promise<Message[]> {
+  const v = await ctx.deps.finance.monthSummary(ctx.userId, ctx.today);
+  const cat = getCategory(categoryId);
+  const row = [...v.totals.expenseByCategory, ...v.totals.incomeByCategory].find((c) => c.categoryId === categoryId);
+  const budget = v.budgets.find((b) => b.budget.categoryId === categoryId);
+  const text = row
+    ? `รอบนี้ ${cat.emoji} ${cat.labelTh} ${cat.kind === 'income' ? 'ได้รับ' : 'ใช้ไป'} ${formatBaht(row.amountSatang)} (${row.count} รายการ)${budget ? `\nงบ ${formatBaht(budget.budget.limitSatang)} · ใช้ไป ${Math.floor(budget.usedBasisPoints / 100)}%` : ''}`
+    : `รอบนี้ยังไม่มีรายการหมวด ${cat.emoji} ${cat.labelTh} เลย`;
+  return [mascotSays(text, budget?.level === 'exceeded' ? 'angry' : budget?.level === 'warning' ? 'worried' : 'smart', [pb('รายงานเดือนนี้', 'report_monthly', {}), pb('ภาพรวม', 'dashboard')])];
+}
+
+export async function showTodayList(ctx: HandlerContext): Promise<Message[]> {
+  const items = await ctx.deps.repos.transactions.listByRange(ctx.userId, ctx.today, ctx.today);
+  return [historyMessage([...items].reverse(), 0, false, ctx.today)];
 }

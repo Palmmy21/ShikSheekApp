@@ -18,7 +18,7 @@ import { errorMessage, helpMessage, mascotSays, onboardingCycleMessage, onboardi
 import { dashboardMessage, reportsMenuMessage, summaryMessage } from '../../src/presentation/line/flex/dashboard-reports.ts';
 import { confirmDeleteFixedCostMessage, confirmFixedCostMessage, fixedCostAddPrompt, fixedCostDetailMessage, fixedCostOverviewMessage, payConfirmMessage, upcomingBillsMessage } from '../../src/presentation/line/flex/fixed-costs.ts';
 import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '../../src/presentation/line/flex/settings.ts';
-import { askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
+import { autoRecordMessage, multiConfirmMessage, multiSavedMessage, askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
 import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
 import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
 
@@ -38,7 +38,7 @@ const fc = (p: Partial<FixedCost> = {}): FixedCost => ({
 const occ = (p: Partial<FixedCostOccurrence> = {}): FixedCostOccurrence => ({
   id: UUID, userId: U, fixedCostId: UUID, occurrenceKey: 'M2026-11', dueDate: '2026-11-25', amountSatang: 650_000, status: 'pending', ...p,
 });
-const user: UserProfile = { userId: U, displayName: 'ปาล์ม', cycleStartDay: 1, notifications: DEFAULT_NOTIFICATION_PREFS, onboarding: 'done', isFollowing: true, createdAt: '' };
+const user: UserProfile = { userId: U, displayName: 'ปาล์ม', cycleStartDay: 1, notifications: DEFAULT_NOTIFICATION_PREFS, onboarding: 'done', isFollowing: true, autoRecord: false, createdAt: '' };
 
 export function buildSamples(): Record<string, Message[]> {
   configureAssetBaseUrl('https://example.supabase.co/storage/v1/object/public/assets');
@@ -107,6 +107,9 @@ export function buildSamples(): Record<string, Message[]> {
     monthly_summary: [summaryMessage(summary('month'), 'ใช้มากกว่าเดือนก่อนนิดนึง', 'worried')],
     summary_empty: [summaryMessage({ ...summary('day'), totals: summarizeTransactions([], { start: TODAY, end: TODAY }), previousTotals: null, expenseChangeSatang: null, budgets: [] }, 'วันนี้เงียบๆ', 'proud')],
     settings: [settingsMessage(user), cycleSettingMessage(25), deleteDataConfirmMessage()],
+    multi_confirm: [multiConfirmMessage(UUID, [draft, { ...draft, categoryId: 'food', categoryConfident: true, note: LONG, txnDate: TODAY }, { ...draft, type: 'income', categoryId: 'salary', categoryConfident: true, amountSatang: 2_500_000, note: 'เงินเดือน', txnDate: TODAY }], TODAY, { expenseSatang: 13_000, incomeSatang: 2_500_000 })],
+    multi_saved: [multiSavedMessage(UUID, [txn({}), txn({ note: LONG, amountSatang: 4_000 })], TODAY, { expenseSatang: 10_500, incomeSatang: 0 }, 'จดให้แล้วจ้า', -12_345)],
+    auto_record: [autoRecordMessage(true), autoRecordMessage(false)],
     confirm_slip: [confirmTransactionMessage(UUID, { ...draft, categoryId: 'food', categoryConfident: true, txnDate: TODAY, source: 'slip', note: 'ร้านกาแฟดอยช้าง', externalRef: 'ref:ABC123456' }, TODAY)],
     import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };

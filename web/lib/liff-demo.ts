@@ -31,7 +31,7 @@ const budgets = [
 ];
 
 const ROUTES: Record<string, unknown> = {
-  '/me': { displayName: 'ปาล์ม', cycleStartDay: 1, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true }, today },
+  '/me': { displayName: 'ปาล์ม', cycleStartDay: 1, autoRecord: false, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true }, today },
   '/categories': categories,
   '/dashboard': {
     period: { key: '2026-11', start: '2026-11-01', end: '2026-11-30' },
