@@ -129,3 +129,25 @@ git pull && npm install && npm test
 npx supabase db push                      # ถ้ามี migration ใหม่
 npx supabase functions deploy line-webhook && npx supabase functions deploy scheduler && npx supabase functions deploy data-export
 ```
+
+## Payments: going live (Stripe PromptPay)
+
+Test mode is live already (checkout visible only to `PAYMENT_TEST_USERS`). To take real money:
+
+1. **Activate the Stripe account** (Dashboard → Activate payments: business details, ID, Thai bank account).
+2. Fill the placeholders in `web/app/terms/page.tsx` (business name, address, contact) and have it reviewed.
+3. Put `STRIPE_LIVE_SECRET_KEY=sk_live_…` in `.env.production`, then:
+   ```bash
+   node --env-file=.env.production scripts/stripe-go-live.ts   # PromptPay-only config + live webhook → .env.stripe-live
+   npx supabase secrets set --env-file .env.stripe-live          # switches the bot to live keys
+   npx supabase functions deploy line-webhook api payment-webhook scheduler
+   ```
+   With an `sk_live_` key the buy buttons appear for everyone (`PAYMENT_TEST_USERS` is ignored).
+4. Smoke test with real money: buy Plus monthly (฿49) yourself, confirm the "ได้รับเงินแล้ว" message,
+   then refund it in the Dashboard (PromptPay refunds cost ฿10; Stripe emails the payer for bank details).
+
+**Refunds / corrections.** Refunding in Stripe does not change the plan automatically. Shorten or
+end access with SQL, e.g. `select grant_plan('<LINE user id>', 'plus', -30, 'manual');`
+(a negative number of days pulls the end date back; the user falls back to Free when it passes).
+
+**Rollback.** `npx supabase secrets set --env-file <file with the sk_test_ values>` and redeploy.
