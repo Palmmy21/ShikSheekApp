@@ -31,6 +31,16 @@ const budgets = [
 ];
 
 const ROUTES: Record<string, unknown> = {
+  '/plan': {
+    plan: 'pro', label: 'Pro', source: 'trial', until: '2026-12-02T00:00:00Z', daysLeft: 9,
+    limits: { fixedCosts: null, goals: null, categoryBudgets: true, docsPerMonth: 500, aiPerMonth: null, scheduledPush: true },
+    usage: { docs: 6, ai: 23, fixedCosts: 4, goals: 2 },
+    prices: { plus: { monthly: 49, yearly: 399, earlyBirdYearly: 299 }, pro: { monthly: 129, yearly: 1090 } },
+    pitch: {
+      plus: ['บิลประจำไม่จำกัด + เตือนก่อนครบกำหนด', 'สรุปรายวัน/รายสัปดาห์ส่งถึงแชท', 'งบทุกหมวด · เป้าออม 5 เป้า', 'อ่านสลิป/PDF 150 ครั้ง/เดือน', 'AI เข้าใจประโยคกำกวมไม่จำกัด'],
+      pro: ['ทุกอย่างใน Plus', 'เป้าออมไม่จำกัด', 'อ่านสลิป/PDF 500 ครั้ง/เดือน', 'ได้ใช้ฟีเจอร์ใหม่ก่อนใคร: บัตรเครดิตหลายใบ ผู้ช่วยลดหย่อนภาษี กระเป๋าครอบครัว'],
+    },
+  },
   '/me': { displayName: 'ปาล์ม', cycleStartDay: 1, autoRecord: false, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true }, today },
   '/categories': categories,
   '/dashboard': {

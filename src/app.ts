@@ -6,6 +6,7 @@ import { createAiPersonality } from './application/personality/ai-assist.ts';
 import { createRuleBasedPersonality, type PersonalityService } from './application/personality/personality-service.ts';
 import { createClaudeAi, type AiClient } from './infrastructure/ai/claude.ts';
 import { createOpenRouterAi } from './infrastructure/ai/openrouter.ts';
+import { createEntitlementService } from './application/services/entitlement-service.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -35,6 +36,7 @@ export function createAppDeps(
   configureLiffUrl(config.LIFF_URL);
   const repos = createRepos(sql);
   const ai = overrides.ai !== undefined ? overrides.ai ?? undefined : createAiFromConfig(config);
+  const clock = overrides.clock ?? (() => new Date());
   const personality =
     overrides.personality ?? (ai && config.AI_PERSONALITY === 'true' ? createAiPersonality(ai) : createRuleBasedPersonality());
   return {
@@ -43,10 +45,11 @@ export function createAppDeps(
     txns: createTransactionService(sql, repos),
     fixedCosts: createFixedCostService(sql, repos),
     finance: createFinanceService(sql, repos),
+    plans: createEntitlementService(repos, clock),
     personality,
     ...(ai ? { ai } : {}),
     line: overrides.line ?? createLineClient(config.LINE_CHANNEL_ACCESS_TOKEN),
-    clock: overrides.clock ?? (() => new Date()),
+    clock,
     log: overrides.log ?? consoleLogger,
   };
 }

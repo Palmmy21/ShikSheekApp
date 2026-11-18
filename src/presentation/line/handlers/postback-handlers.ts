@@ -38,6 +38,8 @@ import {
   showWeekSummary,
 } from './views.ts';
 import { exportUserData } from './privacy.ts';
+import { showPlans } from './views.ts';
+import { PLANS, PRICES } from '../../../domain/plans.ts';
 import { confirmEdit, pickEditTarget } from './edit-handler.ts';
 import { createImportService } from '../../../application/services/import-service.ts';
 
@@ -158,6 +160,7 @@ export const postbackHandlers: Handlers = {
 
   // ── fixed costs ──
   fc_add: async (ctx) => {
+    await ctx.deps.plans.assertCanAdd(ctx.userId, 'fixed_costs');
     await ctx.deps.repos.conversation.set(ctx.userId, 'await_fixed_cost', {});
     return [fixedCostAddPrompt()];
   },
@@ -188,6 +191,7 @@ export const postbackHandlers: Handlers = {
     const won = await ctx.deps.repos.pending.resolve<FixedCostProposal>(ctx.userId, id, 'confirmed');
     if (!won || won.kind !== FIXED_COST_DRAFT_KIND) return [staleActionMessage()];
     const p = won.payload;
+    await ctx.deps.plans.assertCanAdd(ctx.userId, 'fixed_costs');
     await ctx.deps.fixedCosts.create(ctx.userId, { name: p.name, amountSatang: p.amountSatang, categoryId: p.categoryId, rule: p.rule }, ctx.today);
     await ctx.deps.repos.conversation.clear(ctx.userId);
     return [mascotSays(`เพิ่ม "${p.name}" แล้ว! ชิกชิกจะเตือนก่อนถึงกำหนดนะ 📅`, 'discipline'), ...(await showFixedCosts(ctx))];
@@ -211,6 +215,7 @@ export const postbackHandlers: Handlers = {
   // ── budgets & goals ──
   budget_add: async () => [budgetCategoryPickerMessage()],
   budget_pick_category: async (ctx, { c }) => {
+    await ctx.deps.plans.assertCanAdd(ctx.userId, 'category_budget', c);
     await ctx.deps.repos.conversation.set(ctx.userId, 'await_budget_amount', { categoryId: c });
     return [text(`ตั้งงบ ${c === 'total' ? '🧺 รวมทั้งเดือน' : categoryLabel(c)} เดือนละเท่าไหร่? พิมพ์จำนวนเงินมาได้เลย`)];
   },
@@ -218,12 +223,14 @@ export const postbackHandlers: Handlers = {
     (await ctx.deps.finance.deleteBudget(ctx.userId, id)) ? [mascotSays('ลบงบนี้แล้ว', 'happy'), ...(await showBudgets(ctx))] : [staleActionMessage()],
   goals: (ctx) => showGoals(ctx),
   goal_add: async (ctx) => {
+    await ctx.deps.plans.assertCanAdd(ctx.userId, 'goals');
     await ctx.deps.repos.conversation.set(ctx.userId, 'await_goal', {});
     return [goalAddPrompt()];
   },
   goal_create_confirm: async (ctx, { id }) => {
     const won = await ctx.deps.repos.pending.resolve<GoalProposal>(ctx.userId, id, 'confirmed');
     if (!won || won.kind !== GOAL_DRAFT_KIND) return [staleActionMessage()];
+    await ctx.deps.plans.assertCanAdd(ctx.userId, 'goals');
     await ctx.deps.finance.createGoal(ctx.userId, won.payload);
     await ctx.deps.repos.conversation.clear(ctx.userId);
     return [mascotSays(`ตั้งเป้า "${won.payload.name}" แล้ว! สู้ๆ นะ 💪`, 'encouraging'), ...(await showGoals(ctx))];
@@ -278,6 +285,14 @@ export const postbackHandlers: Handlers = {
     return [text('ลบข้อมูลทั้งหมดเรียบร้อยแล้ว 🧹\nถ้าอยากเริ่มใหม่ แค่พิมพ์อะไรก็ได้มาหาชิกชิกนะ')];
   },
   help: async () => [helpMessage()],
+
+  // ── plans ──
+  plans: (ctx) => showPlans(ctx),
+  plan_interest: async (ctx, { p }) => {
+    const fresh = await ctx.deps.repos.plans.addInterest(ctx.userId, p);
+    const early = p === 'plus' ? ` พร้อมราคาผู้ใช้กลุ่มแรก ฿${PRICES.plus.earlyBirdYearly}/ปี (ล็อกราคาตลอด)` : '';
+    return [mascotSays(fresh ? `จดชื่อไว้แล้ว! ตอนนี้ ${PLANS[p].label} ยังไม่เปิดรับชำระเงิน ชิกชิกจะทักไปบอกทันทีที่เปิด${early} 🐔` : `ชิกชิกจดไว้แล้วน้า จะบอกทันทีที่ ${PLANS[p].label} เปิดให้สมัคร`, 'celebrating', [pb('แพ็กเกจของฉัน', 'plans'), pb('ภาพรวม', 'dashboard')])];
+  },
   cancel_flow: async (ctx) => {
     await ctx.deps.repos.conversation.clear(ctx.userId);
     return say('โอเค ไม่เป็นไรจ้า', 'happy');

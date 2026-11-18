@@ -2,11 +2,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   BellRing, CalendarClock, Check, ChevronLeft, ChevronRight, House, Pause, Pencil, PiggyBank, Play, Plus,
-  ReceiptText, Search, Settings, SkipForward, Target, Trash2, type LucideIcon,
+  ReceiptText, Search, Settings, SkipForward, Sparkles, Target, Trash2, type LucideIcon,
 } from 'lucide-react';
 import {
   api, DEMO, initLiff, thaiDate,
-  type BudgetItem, type Category, type Dashboard, type FixedCostItem, type GoalItem, type Me, type MonthReport, type Txn,
+  type BudgetItem, type Category, type Dashboard, type FixedCostItem, type GoalItem, type Me, type MonthReport, type PlanInfo, type Txn,
 } from '@/lib/liff-api';
 import { CategoryIcon } from '@/components/icons';
 import { CategoryBars, DailyBars, Progress } from './Charts';
@@ -507,6 +507,70 @@ function GoalSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => 
   );
 }
 
+// ── PLAN ──
+function Meter({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  const pct = limit ? Math.round((used / limit) * 100) : 0;
+  return (
+    <div className="meter">
+      <div className="meter__row"><span>{label}</span><b>{limit === null ? `${used} · ไม่จำกัด` : `${used} / ${limit}`}</b></div>
+      {limit !== null && <Progress percent={pct} level={pct >= 100 ? 'exceeded' : pct >= 80 ? 'warning' : 'ok'} />}
+    </div>
+  );
+}
+
+function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
+  const [p, setP] = useState<PlanInfo | null>(null);
+  const [open, setOpen] = useState<'plus' | 'pro' | null>(null);
+  useEffect(() => {
+    api<PlanInfo>('/plan').then(setP).catch(() => {});
+  }, []);
+  if (!p) return null;
+  async function interest(plan: 'plus' | 'pro') {
+    try {
+      await api('/plan/interest', { method: 'POST', body: { plan } });
+      toast(`จดไว้แล้ว! จะแจ้งทันทีที่ ${plan === 'plus' ? 'Plus' : 'Pro'} เปิดให้สมัคร`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'ไม่สำเร็จ');
+    }
+  }
+  const badge =
+    p.source === 'trial' ? `ทดลอง Pro ฟรี · เหลือ ${p.daysLeft} วัน` : p.plan === 'free' ? 'แพ็กเกจฟรี' : `${p.label} · ถึง ${thaiDate(p.until!.slice(0, 10))}`;
+  return (
+    <section className={`card plan plan--${p.plan}`}>
+      <div className="card__head">
+        <h3><Sparkles size={16} aria-hidden="true" /> แพ็กเกจของฉัน</h3>
+        <span className="plan__badge">{badge}</span>
+      </div>
+      <Meter label="อ่านสลิป/PDF เดือนนี้" used={p.usage.docs} limit={p.limits.docsPerMonth} />
+      <Meter label="AI ช่วยเข้าใจ เดือนนี้" used={p.usage.ai} limit={p.limits.aiPerMonth} />
+      <Meter label="บิลประจำ" used={p.usage.fixedCosts} limit={p.limits.fixedCosts} />
+      <Meter label="เป้าออม" used={p.usage.goals} limit={p.limits.goals} />
+      <div className="plan__tiers">
+        {(['plus', 'pro'] as const).map((t) => (
+          <div key={t} className={`tier tier--${t}`}>
+            <button className="tier__head" onClick={() => setOpen(open === t ? null : t)} aria-expanded={open === t}>
+              <b>{t === 'plus' ? 'Plus' : 'Pro'}</b>
+              <span>฿{p.prices[t].monthly}/เดือน · ฿{p.prices[t].yearly.toLocaleString('en-US')}/ปี</span>
+            </button>
+            {open === t && (
+              <div className="tier__body">
+                <ul>
+                  {p.pitch[t].map((l) => (
+                    <li key={l}><Check size={14} aria-hidden="true" /> {l}</li>
+                  ))}
+                </ul>
+                {t === 'plus' && <p className="muted small">ผู้ใช้กลุ่มแรก ฿{p.prices.plus.earlyBirdYearly}/ปี ล็อกราคาตลอด</p>}
+                <button className="btn btn--primary" onClick={() => interest(t)}>สนใจ {t === 'plus' ? 'Plus' : 'Pro'}</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="muted small">จดผ่านแชท ถามยอด ส่งออก/ลบข้อมูล ฟรีไม่จำกัดเสมอ</p>
+    </section>
+  );
+}
+
 // ── SETTINGS ──
 function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me) => void }) {
   const labels: Record<keyof Me['notifications'], [string, string]> = {
@@ -539,6 +603,7 @@ function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me)
   }
   return (
     <>
+      <PlanCard toast={toast} />
       <section className="card">
         <h3>การจด</h3>
         <ul className="toggles">

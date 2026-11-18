@@ -21,6 +21,9 @@ import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '
 import { autoRecordMessage, multiConfirmMessage, multiSavedMessage, askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
 import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
 import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
+import { planLimitMessage, planStatusMessage } from '../../src/presentation/line/flex/plans.ts';
+import { PlanLimitError } from '../../src/application/services/entitlement-service.ts';
+import { PLANS } from '../../src/domain/plans.ts';
 
 const U = 'U' + '0'.repeat(31) + '1';
 const TODAY = '2026-11-18';
@@ -111,6 +114,10 @@ export function buildSamples(): Record<string, Message[]> {
     multi_saved: [multiSavedMessage(UUID, [txn({}), txn({ note: LONG, amountSatang: 4_000 })], TODAY, { expenseSatang: 10_500, incomeSatang: 0 }, 'จดให้แล้วจ้า', -12_345)],
     auto_record: [autoRecordMessage(true), autoRecordMessage(false)],
     confirm_slip: [confirmTransactionMessage(UUID, { ...draft, categoryId: 'food', categoryConfident: true, txnDate: TODAY, source: 'slip', note: 'ร้านกาแฟดอยช้าง', externalRef: 'ref:ABC123456' }, TODAY)],
+    plans_free: [planStatusMessage({ plan: 'free', limits: PLANS.free, source: 'free', until: null, daysLeft: null }, { docs: 10, ai: 17, fixedCosts: 3, goals: 0 })],
+    plans_trial: [planStatusMessage({ plan: 'pro', limits: PLANS.pro, source: 'trial', until: '2026-12-02T00:00:00Z', daysLeft: 14 }, { docs: 3, ai: 40, fixedCosts: 7, goals: 2 })],
+    plans_paid: [planStatusMessage({ plan: 'plus', limits: PLANS.plus, source: 'paid', until: '2026-12-31T00:00:00Z', daysLeft: 43 }, { docs: 120, ai: 0, fixedCosts: 12, goals: 5 })],
+    plan_limits: [planLimitMessage(new PlanLimitError('fixed_costs', 'free', 3)), planLimitMessage(new PlanLimitError('category_budget', 'free', null)), planLimitMessage(new PlanLimitError('docs', 'free', 10)), planLimitMessage(new PlanLimitError('goals', 'plus', 5)), planLimitMessage(new PlanLimitError('history', 'free', 2))],
     import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };
 }

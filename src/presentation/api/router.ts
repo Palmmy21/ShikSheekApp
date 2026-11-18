@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 import { validateDraft, ValidationError } from '../../application/services/transaction-service.ts';
+import { PlanLimitError } from '../../application/services/entitlement-service.ts';
 import { computeBudgetStatuses } from '../../domain/calculations/budget.ts';
 import { dailyExpenseSeries, expenseByCategoryMap } from '../../domain/calculations/summary.ts';
 import { bangkokToday, type LocalDate } from '../../domain/dates.ts';
@@ -16,12 +17,19 @@ import type { NotificationPrefs, Transaction } from '../../domain/entities/index
 import { formatBaht, parseBahtToSatang, type Satang } from '../../domain/money.ts';
 import { periodForDate, periodFromKey, previousPeriod } from '../../domain/period.ts';
 import { describeRuleThai } from '../../domain/recurrence.ts';
+import { PLAN_PITCH, PRICES } from '../../domain/plans.ts';
 import type { IdTokenVerifier } from '../../infrastructure/line/id-token.ts';
 import { redactUserId, type AppDeps } from '../line/context.ts';
 
 export interface ApiOptions {
   verify: IdTokenVerifier;
   allowedOrigins: string[];
+}
+
+/** Whole months between two period keys (YYYY-MM); future → 0. */
+function periodsBack(currentKey: string, key: string): number {
+  const n = (k: string) => Number(k.slice(0, 4)) * 12 + Number(k.slice(5, 7));
+  return Math.max(0, n(currentKey) - n(key));
 }
 
 class HttpError extends Error {
@@ -245,6 +253,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     if (is('POST', 'fixed-costs')) {
       const b = await body(req, FixedCostCreate);
       if (b.firstDueDate < today) throw new HttpError(422, 'วันครบกำหนดครั้งแรกต้องเป็นวันนี้หรืออนาคต');
+      await deps.plans.assertCanAdd(userId, 'fixed_costs');
       const f = await fc.create(userId, { name: b.name, amountSatang: b.amount, categoryId: b.categoryId, rule: { frequency: b.frequency, interval: b.interval, anchorDate: b.firstDueDate }, remindDaysBefore: b.remindDaysBefore }, today);
       return json(201, { id: f.id });
     }
@@ -267,6 +276,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     }
     if (is('PUT', 'budgets', '*')) {
       const b = await body(req, BudgetPut);
+      await deps.plans.assertCanAdd(userId, 'category_budget', seg[1]!);
       const bud = await fin.setBudget(userId, seg[1]!, b.limit);
       return json(200, { id: bud.id });
     }
@@ -290,6 +300,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
       const b = await body(req, GoalCreate);
       const reserve = b.monthlyReserve ? parseBahtToSatang(b.monthlyReserve.replace(/,/g, '')) : 0;
       if (reserve === null) throw new HttpError(422, 'ยอดออมต่อเดือนไม่ถูกต้อง');
+      await deps.plans.assertCanAdd(userId, 'goals');
       const g = await fin.createGoal(userId, { name: b.name, targetSatang: b.target, monthlyReserveSatang: reserve });
       return json(201, { id: g.id });
     }
@@ -305,11 +316,24 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     }
     if (is('POST', 'goals', '*', 'archive')) return ok(await fin.archiveGoal(userId, seg[1]!));
 
+    // ── plan ──
+    if (is('GET', 'plan')) {
+      const [s, u] = await Promise.all([deps.plans.status(userId), deps.plans.usage(userId, today)]);
+      return json(200, { plan: s.plan, label: s.limits.label, source: s.source, until: s.until, daysLeft: s.daysLeft, limits: s.limits, usage: u, prices: PRICES, pitch: PLAN_PITCH });
+    }
+    if (is('POST', 'plan', 'interest')) {
+      const b = await body(req, z.object({ plan: z.enum(['plus', 'pro']) }));
+      await deps.repos.plans.addInterest(userId, b.plan);
+      return json(200, { ok: true });
+    }
+
     // ── reports ──
     if (is('GET', 'reports', 'month')) {
       const user = (await deps.repos.users.get(userId))!;
       const key = url.searchParams.get('k');
-      const period = key && /^\d{4}-\d{2}$/.test(key) ? periodFromKey(key, user.cycleStartDay) : periodForDate(today, user.cycleStartDay);
+      const current = periodForDate(today, user.cycleStartDay);
+      const period = key && /^\d{4}-\d{2}$/.test(key) ? periodFromKey(key, user.cycleStartDay) : current;
+      await deps.plans.assertHistory(userId, periodsBack(current.key, period.key));
       const s = await fin.monthSummary(userId, today, period.key);
       const txnsInPeriod = await deps.repos.transactions.listByRange(userId, period.start, period.end);
       const range = { start: period.start, end: period.end };
@@ -354,6 +378,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
   } catch (e) {
     if (e instanceof HttpError) return json(e.status, { error: e.message });
     if (e instanceof ValidationError) return json(422, { error: e.message });
+    if (e instanceof PlanLimitError) return json(402, { error: 'plan_limit', feature: e.feature, plan: e.plan, limit: e.limit });
     deps.log.error('api_failed', { path, user: redactUserId(userId), error: e instanceof Error ? e.message : String(e) });
     return json(500, { error: 'internal error' });
   }

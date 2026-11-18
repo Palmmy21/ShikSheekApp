@@ -42,6 +42,7 @@ export function settingsMessage(u: UserProfile): FlexMessage {
       ],
       footer: [
         hbox([button(pb('📦 ส่งออกข้อมูล', 'data_export'), 'secondary', { flex: 1 }), button(pb('🗑️ ลบข้อมูล', 'data_delete'), 'secondary', { flex: 1 })], { spacing: 'sm' }),
+        button(pb('⭐ แพ็กเกจของฉัน', 'plans'), 'link'),
         ...(liffLink() ? [button({ type: 'uri', label: '📱 ตั้งค่าในแอป', uri: liffLink()! }, 'link')] : []),
       ],
     }),

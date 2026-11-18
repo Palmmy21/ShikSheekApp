@@ -19,6 +19,7 @@ import { categoryPickerMessage, confirmTransactionMessage, historyMessage, multi
 import { formatBaht, sumSatang } from '../../../domain/money.ts';
 import { pb } from '../flex/actions.ts';
 import { billChoice } from './edit-handler.ts';
+import { planStatusMessage } from '../flex/plans.ts';
 
 export async function showDashboard(ctx: HandlerContext): Promise<Message[]> {
   const v = await ctx.deps.finance.dashboard(ctx.userId, ctx.today);
@@ -235,4 +236,10 @@ export async function showCategorySpend(ctx: HandlerContext, categoryId: string)
 export async function showTodayList(ctx: HandlerContext): Promise<Message[]> {
   const items = await ctx.deps.repos.transactions.listByRange(ctx.userId, ctx.today, ctx.today);
   return [historyMessage([...items].reverse(), 0, false, ctx.today)];
+}
+
+/** "แพ็กเกจของฉัน": current plan, trial days left, this month's usage, Plus/Pro cards. */
+export async function showPlans(ctx: HandlerContext): Promise<Message[]> {
+  const [s, u] = await Promise.all([ctx.deps.plans.status(ctx.userId, ctx.now), ctx.deps.plans.usage(ctx.userId, ctx.today)]);
+  return [planStatusMessage(s, u)];
 }

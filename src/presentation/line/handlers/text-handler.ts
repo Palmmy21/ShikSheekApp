@@ -39,6 +39,7 @@ import {
   showWeekSummary,
   proposeMulti,
   sendTestPush,
+  showPlans,
   showCategorySpend,
   showTodayList,
 } from './views.ts';
@@ -104,6 +105,7 @@ async function handleFlow(ctx: HandlerContext, flow: FlowState, input: string): 
       const amount = parseBareAmount(input);
       if (amount === null) return [mascotSays('พิมพ์แค่จำนวนเงินนะ เช่น 6000', 'thinking', [pb('ยกเลิก', 'cancel_flow')])];
       try {
+        await deps.plans.assertCanAdd(userId, 'category_budget', flow.context.categoryId);
         await deps.finance.setBudget(userId, flow.context.categoryId, amount);
       } catch (e) {
         if (e instanceof ValidationError) return [mascotSays(e.message, 'thinking')];
@@ -264,6 +266,7 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           }
         }
         case 'set_budget':
+          await deps.plans.assertCanAdd(userId, 'category_budget', m.categoryId);
           await deps.finance.setBudget(userId, m.categoryId, m.amountSatang);
           return [mascotSays(`ตั้งงบ ${m.categoryId === 'total' ? 'รวมทั้งเดือน' : getCategory(m.categoryId).labelTh} ${formatBaht(m.amountSatang)} ต่อเดือนแล้ว ✓`, 'discipline'), ...(await showBudgets(ctx))];
         case 'auto_record':
@@ -271,6 +274,8 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           return [autoRecordMessage(m.on)];
         case 'test_push':
           return sendTestPush(ctx);
+        case 'plans':
+          return showPlans(ctx);
       }
       break;
     case 'extra_query':
@@ -327,7 +332,7 @@ export async function handleText(ctx: HandlerContext, input: string): Promise<Me
 
   // Rules produced an UNSURE expense from chat: ask the AI once, with the user's item names. It may
   // recognise an edit ("ห้องขึ้นราคา…3500") or a better category. Same guards as everywhere.
-  if (parsed.kind === 'transaction' && !parsed.categoryConfident && ctx.deps.ai && trimmed.length <= 500) {
+  if (parsed.kind === 'transaction' && !parsed.categoryConfident && ctx.deps.ai && trimmed.length <= 500 && (await ctx.deps.plans.useAi(ctx.userId, ctx.today))) {
     const intent = await ctx.deps.ai.interpret(trimmed, await knownItems(ctx)).catch(() => null);
     if (intent) {
       const edit = aiEditToIntent(intent, trimmed);
@@ -341,7 +346,7 @@ export async function handleText(ctx: HandlerContext, input: string): Promise<Me
 
   // Optional AI fallback: only for text the rules couldn't read. Its output becomes the same kind of
   // proposal the rules produce (amount must literally appear in the text) and still needs confirmation.
-  if (parsed.kind === 'unknown' && ctx.deps.ai && trimmed.length <= 500) {
+  if (parsed.kind === 'unknown' && ctx.deps.ai && trimmed.length <= 500 && (await ctx.deps.plans.useAi(ctx.userId, ctx.today))) {
     const intent = await ctx.deps.ai.interpret(trimmed, await knownItems(ctx));
     if (intent) {
       const edit = aiEditToIntent(intent, trimmed);

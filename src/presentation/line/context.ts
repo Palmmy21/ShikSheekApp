@@ -1,3 +1,4 @@
+import type { EntitlementService } from '../../application/services/entitlement-service.ts';
 import type { FinanceService } from '../../application/services/finance-service.ts';
 import type { FixedCostService } from '../../application/services/fixed-cost-service.ts';
 import type { TransactionService } from '../../application/services/transaction-service.ts';
@@ -21,6 +22,8 @@ export interface AppDeps {
   txns: TransactionService;
   fixedCosts: FixedCostService;
   finance: FinanceService;
+  /** plan, limits and metered usage */
+  plans: EntitlementService;
   personality: PersonalityService;
   /** Optional Claude layer for messages the rule-based parser cannot understand. */
   ai?: AiClient;

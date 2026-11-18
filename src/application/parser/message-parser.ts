@@ -28,6 +28,7 @@ export type MessageParse =
   | { kind: 'command'; command: 'set_budget'; categoryId: string; amountSatang: Satang }
   | { kind: 'command'; command: 'auto_record'; on: boolean }
   | { kind: 'command'; command: 'test_push' }
+  | { kind: 'command'; command: 'plans' }
   | { kind: 'extra_query'; query: 'yesterday_spent' | 'last_month_summary' | 'today_list' }
   | { kind: 'extra_query'; query: 'category_spend'; categoryId: string };
 
@@ -63,6 +64,7 @@ function parseCommand(text: string): MessageParse | null {
   }
   if (/^(เปิด\s*(การ)?\s*จดอัตโนมัติ|จดเลยไม่ต้องถาม|ไม่ต้องยืนยัน|จดทันที)$/.test(text)) return { kind: 'command', command: 'auto_record', on: true };
   if (/^(ปิด\s*(การ)?\s*จดอัตโนมัติ|ถามก่อนจด|ยืนยันก่อนจด)$/.test(text)) return { kind: 'command', command: 'auto_record', on: false };
+  if (/^(แพ็[กค]เกจ(ของฉัน)?|แพคเกจ|สมาชิก|อัปเกรด|อัพเกรด|plan|plans|plus|pro|ราคา|ค่าสมาชิก)$/i.test(text)) return { kind: 'command', command: 'plans' };
   if (/^(ทดสอบ\s*(การ)?\s*แจ้งเตือน|test\s*push|ทดสอบ\s*push)$/.test(text)) return { kind: 'command', command: 'test_push' };
   return null;
 }

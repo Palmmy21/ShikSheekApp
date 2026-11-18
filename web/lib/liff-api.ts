@@ -96,6 +96,26 @@ export interface Me {
   today: string;
 }
 
+export interface PlanInfo {
+  plan: 'free' | 'plus' | 'pro';
+  label: string;
+  source: 'free' | 'trial' | 'paid';
+  until: string | null;
+  daysLeft: number | null;
+  limits: { fixedCosts: number | null; goals: number | null; categoryBudgets: boolean; docsPerMonth: number | null; aiPerMonth: number | null; scheduledPush: boolean };
+  usage: { docs: number; ai: number; fixedCosts: number; goals: number };
+  prices: { plus: { monthly: number; yearly: number; earlyBirdYearly: number }; pro: { monthly: number; yearly: number } };
+  pitch: { plus: string[]; pro: string[] };
+}
+
+const PLAN_LIMIT_TEXT: Record<string, string> = {
+  fixed_costs: 'แพ็กเกจของคุณตั้งบิลประจำครบแล้ว อัปเกรดเพื่อเพิ่มได้ไม่จำกัด',
+  goals: 'แพ็กเกจของคุณตั้งเป้าออมครบแล้ว',
+  category_budget: 'งบรายหมวดเป็นของ Plus แพ็กเกจฟรีตั้งได้เฉพาะงบรวม',
+  history: 'แพ็กเกจฟรีดูรายงานย้อนหลังได้ 2 เดือน',
+  docs: 'เดือนนี้อ่านสลิป/PDF ครบแล้ว',
+};
+
 export class ApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -152,6 +172,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   });
   if (res.status === 401) relogin();
   const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (res.status === 402) throw new ApiError(402, PLAN_LIMIT_TEXT[(data as { feature?: string } | null)?.feature ?? ''] ?? 'ฟีเจอร์นี้สำหรับ Plus/Pro');
   if (!res.ok) throw new ApiError(res.status, (data as { error?: string } | null)?.error ?? 'เกิดข้อผิดพลาด');
   return data as T;
 }

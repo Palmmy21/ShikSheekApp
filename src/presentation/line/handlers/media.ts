@@ -31,6 +31,7 @@ export async function handleDocumentMessage(ctx: HandlerContext, messageId: stri
   if (!deps.ai) {
     return [mascotSays('ตอนนี้ยังไม่ได้เปิดการอ่านสลิป/PDF น้า พิมพ์รายการแทนได้เลย เช่น "กินข้าว 65"', 'thinking')];
   }
+  await deps.plans.useDocument(userId, ctx.today); // throws PlanLimitError → upgrade card
   await deps.line.showLoading(userId, 30);
 
   const content = await deps.line.getContent(messageId, MAX_DOCUMENT_BYTES);

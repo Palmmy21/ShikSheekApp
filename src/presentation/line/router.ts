@@ -12,6 +12,8 @@ import { postbackHandlers } from './handlers/postback-handlers.ts';
 import { handleText } from './handlers/text-handler.ts';
 import { showDashboard } from './handlers/views.ts';
 import { handleDocumentMessage } from './handlers/media.ts';
+import { PlanLimitError } from '../../application/services/entitlement-service.ts';
+import { planLimitMessage } from './flex/plans.ts';
 import { decodePostback, type ActionName, type ParsedAction } from './postback.ts';
 
 export async function dispatchPostback(ctx: HandlerContext, parsed: ParsedAction): Promise<Message[]> {
@@ -21,6 +23,16 @@ export async function dispatchPostback(ctx: HandlerContext, parsed: ParsedAction
 
 /** Produce the reply for an event (no I/O to LINE). Exposed for tests. */
 export async function buildReply(event: LineEvent, deps: AppDeps): Promise<Message[]> {
+  try {
+    return await buildReplyInner(event, deps);
+  } catch (e) {
+    // A plan limit anywhere in a handler becomes a friendly upgrade card, never an error.
+    if (e instanceof PlanLimitError) return [planLimitMessage(e)];
+    throw e;
+  }
+}
+
+async function buildReplyInner(event: LineEvent, deps: AppDeps): Promise<Message[]> {
   const userId = userIdOf(event);
   if (!userId) return []; // groups/rooms and unknown events are ignored
 

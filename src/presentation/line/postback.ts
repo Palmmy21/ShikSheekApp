@@ -80,6 +80,10 @@ export const ACTION_PARAMS = {
   data_delete: z.object({}),
   data_delete_confirm: z.object({}),
   help: z.object({}),
+
+  // plans
+  plans: z.object({}),
+  plan_interest: z.object({ p: z.enum(['plus', 'pro']) }),
   cancel_flow: z.object({}),
   draft_cancel: z.object({ id: uuid }), // cancel any pending draft (fixed cost / goal)
 } as const;

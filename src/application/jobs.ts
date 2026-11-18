@@ -117,6 +117,7 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
     const byUser = new Map<string, typeof candidates>();
     for (const o of candidates) byUser.set(o.userId, [...(byUser.get(o.userId) ?? []), o]);
     for (const [userId, occs] of byUser) {
+      if (!(await deps.plans.canScheduledPush(userId, now))) continue; // Plus/Pro feature
       const costs = await deps.repos.fixedCosts.list(userId);
       const due = billsToRemind(occs, costs, today);
       if (due.length === 0) continue;
@@ -134,6 +135,7 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
     const today = bangkokToday(now);
     const report: JobReport = { job: 'daily_summary', sent: 0, skipped: 0, failed: 0 };
     for (const user of await usersFor(deps, 'dailySummary')) {
+      if (!(await deps.plans.canScheduledPush(user.userId, now))) continue;
       await sendOnce(deps, 'daily_summary', today, user.userId, () => showDaySummary(ctxFor(deps, user, now, today), today), report);
     }
     return report;
@@ -143,6 +145,7 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
     const today = bangkokToday(now);
     const report: JobReport = { job: 'weekly_summary', sent: 0, skipped: 0, failed: 0 };
     for (const user of await usersFor(deps, 'weeklySummary')) {
+      if (!(await deps.plans.canScheduledPush(user.userId, now))) continue;
       await sendOnce(deps, 'weekly_summary', today, user.userId, () => showWeekSummary(ctxFor(deps, user, now, today)), report);
     }
     return report;
