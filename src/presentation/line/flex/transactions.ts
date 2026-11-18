@@ -41,14 +41,19 @@ export function confirmTransactionMessage(draftId: string, d: TransactionDraft, 
   ];
   if (!d.categoryConfident) body.push(hbox([pill('ชิกชิกไม่แน่ใจหมวด กด "เปลี่ยนหมวด" ได้นะ', BRAND.softYellow, BRAND.deepRed)]));
   if (d.txnDate > today) body.push(hbox([pill('รายการล่วงหน้า', BRAND.softRed, BRAND.deepRed)]));
+  const fromDocument = d.source === 'slip' || d.source === 'pdf';
+  if (fromDocument) body.push(txt('📎 อ่านจากเอกสาร — ตรวจยอดเงินและวันที่ให้ตรงก่อนกดยืนยันนะ', { size: 'xs', color: BRAND.deepRed }));
 
   return flex(
     `ยืนยัน${TYPE_LABEL[d.type]} ${formatBaht(d.amountSatang)}?`,
     bubble({
-      header: header('ยืนยันรายการ', 'จดแบบนี้ใช่ไหม?', mascotUrl('thinking')),
+      header: header(fromDocument ? 'อ่านจากสลิป' : 'ยืนยันรายการ', 'จดแบบนี้ใช่ไหม?', mascotUrl(fromDocument ? 'smart' : 'thinking')),
       body,
       footer: [
         button(pb(`✅ ยืนยัน ${formatBaht(d.amountSatang)}`, 'txn_confirm', { id: draftId }, { displayText: 'ยืนยัน' })),
+        ...(fromDocument && d.type !== 'saving'
+          ? [button(pb(d.type === 'expense' ? '↔ เป็นรายรับ' : '↔ เป็นรายจ่าย', 'txn_set_type', { id: draftId, t: d.type === 'expense' ? 'income' : 'expense' }), 'secondary')]
+          : []),
         hbox(
           [
             ...(d.type !== 'saving'

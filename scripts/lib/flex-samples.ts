@@ -20,6 +20,7 @@ import { confirmDeleteFixedCostMessage, confirmFixedCostMessage, fixedCostAddPro
 import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '../../src/presentation/line/flex/settings.ts';
 import { askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
 import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
+import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
 
 const U = 'U' + '0'.repeat(31) + '1';
 const TODAY = '2026-11-18';
@@ -28,7 +29,7 @@ const LONG = 'ค่าผ่อนคอนโดริมแม่น้ำเ
 
 const txn = (p: Partial<Transaction>): Transaction => ({
   id: UUID, userId: U, type: 'expense', amountSatang: 6_500, categoryId: 'food', note: 'กินข้าว', txnDate: TODAY,
-  source: 'chat', fixedCostOccurrenceId: null, savingsGoalId: null, createdAt: '', deletedAt: null, ...p,
+  source: 'chat', fixedCostOccurrenceId: null, savingsGoalId: null, externalRef: null, createdAt: '', deletedAt: null, ...p,
 });
 const fc = (p: Partial<FixedCost> = {}): FixedCost => ({
   id: UUID, userId: U, name: 'ค่าห้อง', amountSatang: 650_000, categoryId: 'bills', frequency: 'monthly', interval: 1,
@@ -106,5 +107,7 @@ export function buildSamples(): Record<string, Message[]> {
     monthly_summary: [summaryMessage(summary('month'), 'ใช้มากกว่าเดือนก่อนนิดนึง', 'worried')],
     summary_empty: [summaryMessage({ ...summary('day'), totals: summarizeTransactions([], { start: TODAY, end: TODAY }), previousTotals: null, expenseChangeSatang: null, budgets: [] }, 'วันนี้เงียบๆ', 'proud')],
     settings: [settingsMessage(user), cycleSettingMessage(25), deleteDataConfirmMessage()],
+    confirm_slip: [confirmTransactionMessage(UUID, { ...draft, categoryId: 'food', categoryConfident: true, txnDate: TODAY, source: 'slip', note: 'ร้านกาแฟดอยช้าง', externalRef: 'ref:ABC123456' }, TODAY)],
+    import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };
 }

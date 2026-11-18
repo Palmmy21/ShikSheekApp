@@ -13,13 +13,14 @@ interface TxnRow {
   source: TransactionSource;
   fixed_cost_occurrence_id: string | null;
   savings_goal_id: string | null;
+  external_ref: string | null;
   created_at: unknown;
   deleted_at: unknown;
 }
 
 // Dates are selected as text so no driver ever shifts them through a timezone.
 const COLUMNS = `id, user_id, type, amount_satang, category_id, note, txn_date::text as txn_date, source,
-  fixed_cost_occurrence_id, savings_goal_id, created_at, deleted_at`;
+  fixed_cost_occurrence_id, savings_goal_id, external_ref, created_at, deleted_at`;
 
 export function mapTransaction(r: TxnRow): Transaction {
   return {
@@ -33,6 +34,7 @@ export function mapTransaction(r: TxnRow): Transaction {
     source: r.source,
     fixedCostOccurrenceId: r.fixed_cost_occurrence_id,
     savingsGoalId: r.savings_goal_id,
+    externalRef: r.external_ref ?? null,
     createdAt: toIso(r.created_at),
     deletedAt: r.deleted_at === null || r.deleted_at === undefined ? null : toIso(r.deleted_at),
   };
@@ -48,15 +50,16 @@ export interface NewTransaction {
   source: TransactionSource;
   fixedCostOccurrenceId?: string | null;
   savingsGoalId?: string | null;
+  externalRef?: string | null;
 }
 
 export function transactionRepo(sql: Sql) {
   return {
     async insert(t: NewTransaction): Promise<Transaction> {
       const rows = await sql.query<TxnRow>(
-        `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, fixed_cost_occurrence_id, savings_goal_id)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning ${COLUMNS}`,
-        [t.userId, t.type, t.amountSatang, t.categoryId, t.note, t.txnDate, t.source, t.fixedCostOccurrenceId ?? null, t.savingsGoalId ?? null],
+        `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, fixed_cost_occurrence_id, savings_goal_id, external_ref)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning ${COLUMNS}`,
+        [t.userId, t.type, t.amountSatang, t.categoryId, t.note, t.txnDate, t.source, t.fixedCostOccurrenceId ?? null, t.savingsGoalId ?? null, t.externalRef ?? null],
       );
       return mapTransaction(rows[0]!);
     },
@@ -93,6 +96,26 @@ export function transactionRepo(sql: Sql) {
         [userId, limit, offset],
       );
       return rows.map(mapTransaction);
+    },
+
+    /** Insert unless a live transaction with the same external_ref exists. Returns null when skipped. */
+    async insertIfNewRef(t: NewTransaction & { externalRef: string }): Promise<Transaction | null> {
+      const rows = await sql.query<TxnRow>(
+        `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, external_ref)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (user_id, external_ref) where external_ref is not null and deleted_at is null do nothing
+         returning ${COLUMNS}`,
+        [t.userId, t.type, t.amountSatang, t.categoryId, t.note, t.txnDate, t.source, t.externalRef],
+      );
+      return rows[0] ? mapTransaction(rows[0]) : null;
+    },
+
+    async findByExternalRef(userId: string, externalRef: string): Promise<Transaction | null> {
+      const rows = await sql.query<TxnRow>(
+        `select ${COLUMNS} from transactions where user_id = $1 and external_ref = $2 and deleted_at is null`,
+        [userId, externalRef],
+      );
+      return rows[0] ? mapTransaction(rows[0]) : null;
     },
 
     async countLive(userId: string): Promise<number> {

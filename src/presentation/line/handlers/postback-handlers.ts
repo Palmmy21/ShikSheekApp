@@ -36,6 +36,7 @@ import {
   showWeekSummary,
 } from './views.ts';
 import { exportUserData } from './privacy.ts';
+import { createImportService } from '../../../application/services/import-service.ts';
 
 export const FIXED_COST_DRAFT_KIND = 'fixed_cost';
 export const GOAL_DRAFT_KIND = 'goal';
@@ -68,6 +69,8 @@ export const postbackHandlers: Handlers = {
         return afterTransactionSaved(ctx, r.transaction);
       case 'already_confirmed':
         return say('รายการนี้บันทึกไปแล้วน้า ไม่จดซ้ำให้ 😉', 'smart');
+      case 'duplicate':
+        return say('สลิป/รายการนี้จดไปแล้ว ชิกชิกไม่บันทึกซ้ำให้นะ 😉', 'smart');
       case 'cancelled':
         return say('รายการนี้ยกเลิกไปแล้ว พิมพ์ใหม่ได้เลย', 'thinking');
       case 'invalid':
@@ -125,6 +128,22 @@ export const postbackHandlers: Handlers = {
     const t = await ctx.deps.txns.remove(ctx.userId, id);
     if (!t) return say('รายการนี้ถูกลบไปแล้วน้า', 'thinking');
     return [deletedMessage(t)];
+  },
+  txn_set_type: async (ctx, { id, t }) => {
+    try {
+      const d = await ctx.deps.txns.updateDraft(ctx.userId, id, { type: t }, ctx.today);
+      if (!d) return [staleActionMessage()];
+      return [confirmTransactionMessage(d.id, d.payload, ctx.today), categoryPickerMessage(d.id, t)];
+    } catch (e) {
+      if (e instanceof ValidationError) return say(e.message, 'thinking');
+      throw e;
+    }
+  },
+  import_confirm: async (ctx, { id }) => {
+    const r = await createImportService(ctx.deps.sql, ctx.deps.repos).confirm(ctx.userId, id);
+    if (r.status === 'stale') return [staleActionMessage()];
+    const extra = r.duplicates ? ` (ข้าม ${r.duplicates} รายการที่มีอยู่แล้ว)` : '';
+    return [mascotSays(`นำเข้าแล้ว ${r.inserted} รายการ${extra} 🎉`, 'celebrating', [pb('ภาพรวม', 'dashboard'), pb('ดูประวัติ', 'txn_history', { p: 0 })])];
   },
   txn_undo: async (ctx, { id }) => {
     const t = await ctx.deps.txns.restore(ctx.userId, id);

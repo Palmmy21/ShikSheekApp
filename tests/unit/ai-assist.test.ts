@@ -43,7 +43,7 @@ describe('AI personality guard', () => {
   });
 
   it('falls back to rule-based lines when the AI fails or misbehaves', async () => {
-    const make = (out: string | null): AiClient => ({ interpret: async () => null, phrase: async () => out });
+    const make = (out: string | null): AiClient => ({ interpret: async () => null, phrase: async () => out, extractDocument: async () => null });
     expect(await createAiPersonality(make('ปังมากจ้า')).comment('saved_income', 's')).toBe('ปังมากจ้า');
     const fallback = await createAiPersonality(make('ได้ 25000 แล้ว')).comment('saved_income', 's');
     expect(fallback).not.toContain('25000');

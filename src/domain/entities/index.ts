@@ -9,7 +9,7 @@ import type { Frequency, StoredOccurrenceStatus } from '../recurrence.ts';
 export type UserId = string;
 
 export type TransactionType = 'income' | 'expense' | 'saving';
-export type TransactionSource = 'chat' | 'rich_menu' | 'fixed_cost' | 'savings' | 'import';
+export type TransactionSource = 'chat' | 'rich_menu' | 'fixed_cost' | 'savings' | 'import' | 'slip' | 'pdf' | 'liff';
 
 export interface Transaction {
   id: string;
@@ -22,6 +22,8 @@ export interface Transaction {
   source: TransactionSource;
   fixedCostOccurrenceId: string | null;
   savingsGoalId: string | null;
+  /** Slip reference or PDF row fingerprint; unique per user among live transactions. */
+  externalRef: string | null;
   createdAt: string;
   deletedAt: string | null;
 }

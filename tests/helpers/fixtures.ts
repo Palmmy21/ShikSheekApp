@@ -19,6 +19,7 @@ export function txn(partial: Partial<Transaction> & Pick<Transaction, 'type' | '
     source: 'chat',
     fixedCostOccurrenceId: null,
     savingsGoalId: null,
+    externalRef: null,
     createdAt: '2026-01-01T00:00:00Z',
     deletedAt: null,
     ...partial,

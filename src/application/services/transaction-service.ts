@@ -3,7 +3,7 @@
  * Nothing financial is written until the user confirms a draft.
  */
 import { addDays, isValidLocalDate, type LocalDate } from '../../domain/dates.ts';
-import { getCategory, isKnownCategory } from '../../domain/entities/categories.ts';
+import { defaultCategoryFor, getCategory, isKnownCategory } from '../../domain/entities/categories.ts';
 import type { Transaction, TransactionSource, TransactionType } from '../../domain/entities/index.ts';
 import { isValidPositiveAmount, type Satang } from '../../domain/money.ts';
 import type { PendingAction } from '../../infrastructure/db/repositories/conversation.ts';
@@ -26,6 +26,8 @@ export interface TransactionDraft {
   txnDate: LocalDate;
   source: TransactionSource;
   savingsGoalId?: string | null;
+  /** Slip reference / PDF fingerprint: the same document can be recorded only once. */
+  externalRef?: string | null;
 }
 
 export class ValidationError extends Error {
@@ -52,6 +54,7 @@ export function validateDraft(d: TransactionDraft, today: LocalDate): void {
 
 export type ConfirmResult =
   | { status: 'saved'; transaction: Transaction }
+  | { status: 'duplicate'; existing: Transaction | null }
   | { status: 'already_confirmed' }
   | { status: 'cancelled' }
   | { status: 'expired' }
@@ -75,12 +78,17 @@ export function createTransactionService(sql: Sql, repos: Repos = createRepos(sq
     async updateDraft(
       userId: string,
       id: string,
-      patch: Partial<Pick<TransactionDraft, 'categoryId' | 'txnDate' | 'amountSatang' | 'note'>>,
+      patch: Partial<Pick<TransactionDraft, 'categoryId' | 'txnDate' | 'amountSatang' | 'note' | 'type'>>,
       today: LocalDate,
     ): Promise<PendingAction<TransactionDraft> | null> {
       const current = await this.getDraft(userId, id);
       if (!current || current.status !== 'pending') return null;
       const next: TransactionDraft = { ...current.payload, ...patch };
+      if (patch.type && patch.type !== current.payload.type && !patch.categoryId) {
+        if (patch.type === 'saving') throw new ValidationError('type', 'เปลี่ยนเป็นเงินออมผ่านเมนูเป้าหมายนะ');
+        next.categoryId = defaultCategoryFor(patch.type);
+        next.categoryConfident = false;
+      }
       if (patch.categoryId) next.categoryConfident = true;
       validateDraft(next, today);
       return repos.pending.updatePayload(userId, id, next);
@@ -88,6 +96,18 @@ export function createTransactionService(sql: Sql, repos: Repos = createRepos(sq
 
     /** Atomic: the draft flips to confirmed and the transaction is inserted together, or neither. */
     async confirm(userId: string, id: string, today: LocalDate): Promise<ConfirmResult> {
+      try {
+        return await this.confirmInner(userId, id, today);
+      } catch (e) {
+        // DB backstop: unique external_ref (same slip confirmed twice concurrently)
+        if ((e as { code?: string }).code === '23505' && String((e as Error).message).includes('external_ref')) {
+          return { status: 'duplicate', existing: null };
+        }
+        throw e;
+      }
+    },
+
+    async confirmInner(userId: string, id: string, today: LocalDate): Promise<ConfirmResult> {
       return sql.transaction(async (tx) => {
         const r = createRepos(tx);
         const draft = await r.pending.get<TransactionDraft>(userId, id);
@@ -97,6 +117,13 @@ export function createTransactionService(sql: Sql, repos: Repos = createRepos(sq
         } catch (e) {
           if (e instanceof ValidationError) return { status: 'invalid' as const, error: e };
           throw e;
+        }
+        if (draft.status === 'pending' && draft.payload.externalRef) {
+          const existing = await r.transactions.findByExternalRef(userId, draft.payload.externalRef);
+          if (existing) {
+            await r.pending.resolve(userId, id, 'cancelled');
+            return { status: 'duplicate' as const, existing };
+          }
         }
         const won = await r.pending.resolve<TransactionDraft>(userId, id, 'confirmed');
         if (!won) {
@@ -114,6 +141,7 @@ export function createTransactionService(sql: Sql, repos: Repos = createRepos(sq
           txnDate: p.txnDate,
           source: p.source,
           savingsGoalId: p.savingsGoalId ?? null,
+          externalRef: p.externalRef ?? null,
         });
         return { status: 'saved' as const, transaction };
       });

@@ -17,6 +17,8 @@ export interface LineClient {
   push(to: string, messages: Message[], retryKey?: string): Promise<void>;
   getProfile(userId: string): Promise<LineProfile | null>;
   showLoading(userId: string, seconds?: number): Promise<void>;
+  /** Download a user-sent image/file. null if unavailable or larger than maxBytes. */
+  getContent(messageId: string, maxBytes: number): Promise<{ bytes: Uint8Array; contentType: string } | null>;
 }
 
 export class LineApiError extends Error {
@@ -73,6 +75,24 @@ export function createLineClient(channelAccessToken: string, fetchImpl: typeof f
       });
       if (!res.ok) return null;
       return (await res.json()) as LineProfile;
+    },
+    async getContent(messageId, maxBytes) {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await fetchImpl(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, {
+          headers: { Authorization: `Bearer ${channelAccessToken}` },
+        });
+        if (res.status === 202) {
+          await new Promise((r) => setTimeout(r, 1500)); // content still being prepared
+          continue;
+        }
+        if (!res.ok) return null;
+        const declared = Number(res.headers.get('content-length') ?? '0');
+        if (declared > maxBytes) return null;
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (bytes.byteLength > maxBytes) return null;
+        return { bytes, contentType: (res.headers.get('content-type') ?? '').split(';')[0]!.trim() };
+      }
+      return null;
     },
     async showLoading(userId, seconds = 5) {
       try {

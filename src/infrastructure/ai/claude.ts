@@ -33,9 +33,51 @@ export const AiIntentSchema = z.object({
 });
 export type AiIntent = z.infer<typeof AiIntentSchema>;
 
+export const DocRowSchema = z.object({
+  type: z.enum(['income', 'expense']),
+  /** Amount EXACTLY as printed (e.g. "1,250.00"); never computed or converted. */
+  amount_text: z.string(),
+  /** Gregorian YYYY-MM-DD (convert Buddhist-era years by subtracting 543), or null if unreadable. */
+  date: z.string().nullable(),
+  description: z.string(),
+  category_id: z.enum(CATEGORY_IDS).nullable(),
+  /** Bank transaction reference / slip ref number if printed, else null. */
+  reference: z.string().nullable(),
+});
+export const DocExtractionSchema = z.object({
+  kind: z.enum(['transfer_slip', 'receipt', 'statement', 'not_financial', 'unreadable']),
+  rows: z.array(DocRowSchema),
+});
+export type DocRow = z.infer<typeof DocRowSchema>;
+export type DocExtraction = z.infer<typeof DocExtractionSchema>;
+
+export type DocMediaType = 'image/jpeg' | 'image/png' | 'application/pdf';
+
 export interface AiClient {
   interpret(text: string): Promise<AiIntent | null>;
   phrase(situation: string, example: string): Promise<string | null>;
+  /** Read a payment slip, receipt or statement. null on error/timeout/refusal. */
+  extractDocument(bytes: Uint8Array, mediaType: DocMediaType): Promise<DocExtraction | null>;
+}
+
+const EXTRACT_SYSTEM = `You read Thai personal-finance documents sent to the ShikSheek LINE bot: bank/e-wallet transfer slips (K PLUS, SCB EASY, Krungthai NEXT, PromptPay, TrueMoney...), receipts, and bank statements.
+Return every money movement you can read as a row:
+- amount_text: copy the amount EXACTLY as printed (keep digits, comma and decimals; drop currency words). Never add, subtract, total, round or convert amounts. Do not include fees as separate rows unless printed as separate lines.
+- type: "expense" for money paid/sent/withdrawn/debited, "income" for money received/deposited/credited. For a transfer slip assume the sender is the user (expense) unless the slip clearly shows the user receiving.
+- date: the transaction date as YYYY-MM-DD in the Gregorian calendar. Thai dates often use Buddhist-era years (2569 or "69" = 2026): subtract 543. null if not printed.
+- description: short Thai/English text: receiver or merchant name, or the statement description (no account numbers).
+- reference: the transaction/reference number printed on a slip (e.g. "เลขที่รายการ"), else null.
+- category_id: best matching category, or null.
+kind: transfer_slip | receipt | statement | not_financial (no money movement) | unreadable.
+For a receipt, return ONE row with the grand total actually paid. For a statement, one row per transaction line (ignore balance-only lines, opening/closing balances and totals).
+Categories: ${CATEGORIES.map((c) => `${c.id}=${c.labelTh}`).join(', ')}.`;
+
+/** Chunked base64 (works on Deno and Node without Buffer). */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(binary);
 }
 
 const INTERPRET_SYSTEM = `You classify one chat message sent to "ShikSheek", a Thai personal-finance LINE bot with a chicken mascot.
@@ -67,6 +109,32 @@ export function createClaudeAi(opts: { apiKey: string; model: string; timeoutMs?
           messages: [{ role: 'user', content: text.slice(0, 500) }],
         });
         if (response.stop_reason === 'refusal') return null;
+        return response.parsed_output ?? null;
+      } catch {
+        return null;
+      }
+    },
+
+    async extractDocument(bytes, mediaType) {
+      try {
+        const data = bytesToBase64(bytes);
+        const source =
+          mediaType === 'application/pdf'
+            ? ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } } as const)
+            : ({ type: 'image', source: { type: 'base64', media_type: mediaType, data } } as const);
+        const response = await client.beta.messages.parse(
+          {
+            model: opts.model,
+            max_tokens: 16_000,
+            betas: ['server-side-fallback-2026-07-01'],
+            fallbacks: 'default',
+            output_config: { effort: 'medium', format: betaZodOutputFormat(DocExtractionSchema) },
+            system: EXTRACT_SYSTEM,
+            messages: [{ role: 'user', content: [source, { type: 'text', text: 'Extract the money movements from this document.' }] }],
+          },
+          { timeout: 90_000 },
+        );
+        if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens') return null;
         return response.parsed_output ?? null;
       } catch {
         return null;

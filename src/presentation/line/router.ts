@@ -11,6 +11,7 @@ import { pb } from './flex/actions.ts';
 import { postbackHandlers } from './handlers/postback-handlers.ts';
 import { handleText } from './handlers/text-handler.ts';
 import { showDashboard } from './handlers/views.ts';
+import { handleDocumentMessage } from './handlers/media.ts';
 import { decodePostback, type ActionName, type ParsedAction } from './postback.ts';
 
 export async function dispatchPostback(ctx: HandlerContext, parsed: ParsedAction): Promise<Message[]> {
@@ -66,7 +67,13 @@ export async function buildReply(event: LineEvent, deps: AppDeps): Promise<Messa
   }
 
   if (event.type === 'message') {
-    return [mascotSays('ตอนนี้ชิกชิกอ่านได้แค่ข้อความนะ ลองพิมพ์ "กินข้าว 65" ดู 🐔', 'thinking', [pb('วิธีใช้', 'help')])];
+    const m = (event as { message: { type: string; id: string; fileName?: string } }).message;
+    if (m.type === 'image') return handleDocumentMessage(ctx, m.id, 'image');
+    if (m.type === 'file' && /.pdf$/i.test(m.fileName ?? '')) return handleDocumentMessage(ctx, m.id, 'pdf');
+    if (m.type === 'audio') {
+      return [mascotSays('ตอนนี้ยังฟังข้อความเสียงไม่ได้น้า 🎙️ ลองกดไมค์บนคีย์บอร์ดมือถือแล้วพูด "กินข้าว 65" ระบบจะพิมพ์ให้เอง', 'thinking')];
+    }
+    return [mascotSays('ชิกชิกอ่านได้ทั้งข้อความ สลิป (รูป) และไฟล์ PDF นะ ลองส่งมาดู 🐔', 'thinking', [pb('วิธีใช้', 'help')])];
   }
   return [];
 }
@@ -91,6 +98,12 @@ export async function routeEvent(event: LineEvent, deps: AppDeps): Promise<void>
       await deps.line.reply(replyToken, messages);
     } catch (err) {
       deps.log.error('reply_failed', { eventType: event.type, error: err instanceof Error ? err.message : String(err) });
+      // Slow document reads can outlive the reply token: fall back to a push so the result isn't lost.
+      const userId = userIdOf(event);
+      const isDocument = event.type === 'message' && ['image', 'file'].includes((event as { message: { type: string } }).message.type);
+      if (userId && isDocument) {
+        await deps.line.push(userId, messages).catch((e) => deps.log.error('push_fallback_failed', { error: e instanceof Error ? e.message : String(e) }));
+      }
     }
   }
 }

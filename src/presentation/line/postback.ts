@@ -30,6 +30,8 @@ export const ACTION_PARAMS = {
   txn_delete: z.object({ id: uuid }),
   txn_delete_confirm: z.object({ id: uuid }),
   txn_undo: z.object({ id: uuid }),
+  txn_set_type: z.object({ id: uuid, t: z.enum(['expense', 'income']) }), // slip direction fix
+  import_confirm: z.object({ id: uuid }), // statement import draft
 
   // fixed costs
   fc_add: z.object({}),

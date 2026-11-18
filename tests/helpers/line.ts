@@ -6,6 +6,7 @@ export class FakeLineClient implements LineClient {
   replies: Array<{ replyToken: string; messages: Message[] }> = [];
   pushes: Array<{ to: string; messages: Message[]; retryKey?: string }> = [];
   profiles = new Map<string, LineProfile>();
+  contents = new Map<string, { bytes: Uint8Array; contentType: string }>();
 
   async reply(replyToken: string, messages: Message[]) {
     this.replies.push({ replyToken, messages });
@@ -17,6 +18,10 @@ export class FakeLineClient implements LineClient {
     return this.profiles.get(userId) ?? null;
   }
   async showLoading() {}
+  async getContent(messageId: string, maxBytes: number) {
+    const c = this.contents.get(messageId);
+    return c && c.bytes.byteLength <= maxBytes ? c : null;
+  }
 
   lastReply(): Message[] {
     return this.replies.at(-1)?.messages ?? [];
