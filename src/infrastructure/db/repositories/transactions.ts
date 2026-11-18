@@ -101,11 +101,11 @@ export function transactionRepo(sql: Sql) {
     /** Insert unless a live transaction with the same external_ref exists. Returns null when skipped. */
     async insertIfNewRef(t: NewTransaction & { externalRef: string }): Promise<Transaction | null> {
       const rows = await sql.query<TxnRow>(
-        `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, external_ref)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+        `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, external_ref, savings_goal_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          on conflict (user_id, external_ref) where external_ref is not null and deleted_at is null do nothing
          returning ${COLUMNS}`,
-        [t.userId, t.type, t.amountSatang, t.categoryId, t.note, t.txnDate, t.source, t.externalRef],
+        [t.userId, t.type, t.amountSatang, t.categoryId, t.note, t.txnDate, t.source, t.externalRef, t.savingsGoalId ?? null],
       );
       return rows[0] ? mapTransaction(rows[0]) : null;
     },

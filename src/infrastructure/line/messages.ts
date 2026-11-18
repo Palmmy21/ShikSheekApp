@@ -30,7 +30,13 @@ export interface DatetimePickerAction {
   max?: string;
   min?: string;
 }
-export type Action = PostbackAction | MessageAction | UriAction | DatetimePickerAction;
+/** Quick-reply only: open the camera / photo picker (the photo arrives as an image message). */
+export interface CameraAction {
+  type: 'camera' | 'cameraRoll';
+  label: string;
+}
+
+export type Action = PostbackAction | MessageAction | UriAction | DatetimePickerAction | CameraAction;
 
 export interface QuickReplyItem {
   type: 'action';

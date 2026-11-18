@@ -3,6 +3,7 @@
  * catalogue — adding a button without a handler is a compile error (and a test failure).
  */
 import { addDays } from '../../../domain/dates.ts';
+import { formatBaht } from '../../../domain/money.ts';
 import { getCategory } from '../../../domain/entities/categories.ts';
 import type { FixedCostProposal, GoalProposal } from '../../../application/parser/setup-parsers.ts';
 import { ValidationError } from '../../../application/services/transaction-service.ts';
@@ -38,7 +39,9 @@ import {
   showWeekSummary,
 } from './views.ts';
 import { exportUserData } from './privacy.ts';
-import { showPlans } from './views.ts';
+import { scanPrompt, showPlans, showWealthPlan } from './views.ts';
+import { savedToGoalText } from '../flex/wealth.ts';
+import type { SaveResult } from '../../../application/services/wealth-service.ts';
 import { PLANS, PRICES } from '../../../domain/plans.ts';
 import { checkoutMessage, paidMessage } from '../flex/plans.ts';
 import { confirmEdit, pickEditTarget } from './edit-handler.ts';
@@ -309,6 +312,15 @@ export const postbackHandlers: Handlers = {
     if (r.status === 'paid') return [paidMessage(r.payment.plan, r.until ?? (await ctx.deps.plans.status(ctx.userId)).until)];
     return [mascotSays('ยังไม่เห็นการชำระเงินน้า ถ้าเพิ่งสแกนจ่าย รอสักครู่แล้วกดตรวจสอบอีกครั้ง (จ่ายเสร็จชิกชิกจะแจ้งเองด้วย)', 'thinking', [pb('ตรวจสอบอีกครั้ง', 'pay_check', { id }), pb('แพ็กเกจของฉัน', 'plans')])];
   },
+  // ── savings-first ──
+  wealth_plan: (ctx) => showWealthPlan(ctx),
+  scan: async () => scanPrompt(),
+  wealth_emergency: async (ctx) => {
+    const { goal, created } = await ctx.deps.wealth.ensureEmergencyGoal(ctx.userId, ctx.today);
+    return [mascotSays(created ? `สร้างเป้า "${goal.name}" เป้าหมาย ${formatBaht(goal.targetSatang)} (3 เท่าของค่าใช้จ่ายต่อเดือน) แล้ว! เริ่มเก็บทีละนิดก็ได้ 💪` : `มีเป้า "${goal.name}" อยู่แล้วน้า`, 'encouraging', [pb('🐷 เก็บเลย', 'goal_contribute', { id: goal.id }), pb('แผนการเงิน', 'wealth_plan')])];
+  },
+  save_first: async (ctx, { id, p }) => savedReply(ctx, await ctx.deps.wealth.saveFirst(ctx.userId, id, Number(p), ctx.today)),
+  sweep: async (ctx, { k, f }) => savedReply(ctx, await ctx.deps.wealth.sweep(ctx.userId, k, f, ctx.today)),
   plan_interest: async (ctx, { p }) => {
     const fresh = await ctx.deps.repos.plans.addInterest(ctx.userId, p);
     const early = p === 'plus' ? ` พร้อมราคาผู้ใช้กลุ่มแรก ฿${PRICES.plus.earlyBirdYearly}/ปี (ล็อกราคาตลอด)` : '';
@@ -352,3 +364,18 @@ export const postbackHandlers: Handlers = {
 
 /** Exposed for tests: dates the user may pick for a transaction. */
 export const dateBounds = (today: string) => ({ min: addDays(today, -366), max: addDays(today, 31) });
+
+/** Reply after "เก็บก่อนใช้" / month-end sweep. */
+async function savedReply(ctx: HandlerContext, r: SaveResult): Promise<Message[]> {
+  if (r.status === 'duplicate') return [mascotSays('ก้อนนี้เก็บไปแล้วน้า ไม่เก็บซ้ำให้ 😉', 'smart', [pb('แผนการเงิน', 'wealth_plan')])];
+  if (r.status !== 'saved') return [staleActionMessage()];
+  const progress = await ctx.deps.finance.goalProgress(ctx.userId, r.goal.id);
+  const pctText = progress ? ` (ถึงเป้าแล้ว ${Math.round(progress.progressBasisPoints / 100)}%)` : '';
+  return [
+    mascotSays(`${savedToGoalText(r.goal, r.txn.amountSatang, r.createdGoal)}${pctText}`, 'proud', [
+      pb('ยกเลิกรายการนี้', 'txn_delete', { id: r.txn.id }),
+      pb('แผนการเงิน', 'wealth_plan'),
+      pb('ภาพรวม', 'dashboard'),
+    ]),
+  ];
+}

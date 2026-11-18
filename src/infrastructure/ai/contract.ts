@@ -71,7 +71,7 @@ Return every money movement you can read as a row:
 - reference: the transaction/reference number printed on a slip (e.g. "เลขที่รายการ"), else null.
 - category_id: best matching category, or null.
 kind: transfer_slip | receipt | statement | not_financial (no money movement) | unreadable.
-For a receipt, return ONE row with the grand total actually paid. For a statement, one row per transaction line (ignore balance-only lines, opening/closing balances and totals).
+For a receipt (ใบเสร็จ / ใบกำกับภาษี / POS slip from 7-Eleven, Lotus's, Makro, cafes, restaurants, e-commerce...), return ONE expense row: amount = the grand total actually paid after discounts and VAT (labels like "รวมทั้งสิ้น", "ยอดชำระ", "Total", "Grand Total", "Net"), never a subtotal or a single item; description = the store/merchant name; category_id = from what was bought (groceries/snacks/meals → food, fuel → transport, medicine → health ...); reference = the receipt / tax-invoice number if printed. For a statement, one row per transaction line (ignore balance-only lines, opening/closing balances and totals).
 Categories: ${CATEGORIES.map((c) => `${c.id}=${c.labelTh}`).join(', ')}.`;
 
 /** Chunked base64 (works on Deno and Node without Buffer). */

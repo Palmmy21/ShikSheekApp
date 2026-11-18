@@ -82,12 +82,14 @@ export function startEntryMessage(type: 'income' | 'expense'): Message {
   const cats = categoriesOfKind(type).slice(0, 12);
   const prompt =
     type === 'expense'
-      ? 'จดรายจ่าย ✍️\nพิมพ์มาได้เลย เช่น "กินข้าว 65" หรือเลือกหมวดด้านล่างแล้วพิมพ์แค่จำนวนเงิน'
+      ? 'จดรายจ่าย ✍️\nพิมพ์มาได้เลย เช่น "กินข้าว 65" หรือ 📷 ถ่ายสลิป/ใบเสร็จส่งมา ชิกชิกอ่านยอดให้เอง'
       : 'จดรายรับ 💰\nพิมพ์มาได้เลย เช่น "ได้เงินเดือน 25000" หรือเลือกหมวดด้านล่างแล้วพิมพ์แค่จำนวนเงิน';
   return text(
     prompt,
     quickReply([
-      ...cats.map((c) => pb(`${c.emoji} ${c.labelTh}`, 'txn_start_category', { t: type, c: c.id }, { displayText: `${c.emoji} ${c.labelTh}`, inputOption: 'openKeyboard' })),
+      { type: 'camera', label: '📷 ถ่ายสลิป/ใบเสร็จ' },
+      { type: 'cameraRoll', label: '🖼️ เลือกรูปสลิป' },
+      ...cats.slice(0, 10).map((c) => pb(`${c.emoji} ${c.labelTh}`, 'txn_start_category', { t: type, c: c.id }, { displayText: `${c.emoji} ${c.labelTh}`, inputOption: 'openKeyboard' })),
       pb('ยกเลิก', 'cancel_flow', {}, { displayText: 'ยกเลิก' }),
     ]),
   );

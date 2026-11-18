@@ -10,7 +10,7 @@ const BUBBLE_SIZES = new Set(['nano', 'micro', 'deca', 'hecto', 'kilo', 'mega', 
 const COMPONENT_TYPES = new Set(['box', 'text', 'image', 'button', 'separator', 'filler', 'icon', 'span', 'video']);
 const PX_OR_PCT = /^(\d+(\.\d+)?(px|%))$/;
 
-function checkAction(action: Record<string, unknown>, path: string, errors: string[], labelMax: number) {
+function checkAction(action: Record<string, unknown>, path: string, errors: string[], labelMax: number, quickReply = false) {
   if (!action || typeof action !== 'object') return errors.push(`${path}: missing action`);
   const label = action.label as string | undefined;
   if (label !== undefined && (label.length === 0 || label.length > labelMax)) errors.push(`${path}: label length ${label.length} > ${labelMax}`);
@@ -22,6 +22,9 @@ function checkAction(action: Record<string, unknown>, path: string, errors: stri
     if (!/^(https:|line:|tel:)/.test(action.uri as string)) errors.push(`${path}: uri must be https/line/tel`);
   } else if (action.type === 'datetimepicker') {
     if (!action.data) errors.push(`${path}: datetimepicker needs data`);
+  } else if (action.type === 'camera' || action.type === 'cameraRoll') {
+    if (!quickReply) errors.push(`${path}: ${String(action.type)} is only allowed in quick replies`);
+    if (!label) errors.push(`${path}: ${String(action.type)} needs a label`);
   } else if (action.type !== 'message') {
     errors.push(`${path}: unknown action type ${String(action.type)}`);
   }
@@ -61,7 +64,7 @@ export function validateMessages(messages: Message[]): string[] {
     const qr = (m as { quickReply?: { items: Array<{ action: Record<string, unknown> }> } }).quickReply;
     if (qr) {
       if (qr.items.length === 0 || qr.items.length > 13) errors.push(`${p}: quick reply items ${qr.items.length}`);
-      qr.items.forEach((it, i) => checkAction(it.action, `${p}.quickReply[${i}]`, errors, 20));
+      qr.items.forEach((it, i) => checkAction(it.action, `${p}.quickReply[${i}]`, errors, 20, true));
     }
     if (m.type === 'text') {
       if (!m.text || m.text.length > 5000) errors.push(`${p}: text length ${m.text.length}`);

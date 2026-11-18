@@ -21,6 +21,8 @@ import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '
 import { autoRecordMessage, multiConfirmMessage, multiSavedMessage, askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
 import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
 import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
+import { saveFirstMessage, sweepMessage, wealthPlanMessage } from '../../src/presentation/line/flex/wealth.ts';
+import { scanPrompt } from '../../src/presentation/line/handlers/views.ts';
 import { checkoutMessage, paidMessage, planLimitMessage, planStatusMessage, renewalMessage } from '../../src/presentation/line/flex/plans.ts';
 import { PlanLimitError } from '../../src/application/services/entitlement-service.ts';
 import { PLANS } from '../../src/domain/plans.ts';
@@ -120,6 +122,13 @@ export function buildSamples(): Record<string, Message[]> {
     plan_limits: [planLimitMessage(new PlanLimitError('fixed_costs', 'free', 3)), planLimitMessage(new PlanLimitError('category_budget', 'free', null)), planLimitMessage(new PlanLimitError('docs', 'free', 10)), planLimitMessage(new PlanLimitError('goals', 'plus', 5)), planLimitMessage(new PlanLimitError('history', 'free', 2))],
     plans_payable: [planStatusMessage({ plan: 'free', limits: PLANS.free, source: 'free', until: null, daysLeft: null }, { docs: 2, ai: 5, fixedCosts: 1, goals: 1 }, { payable: true, earlyBird: true }), planStatusMessage({ plan: 'plus', limits: PLANS.plus, source: 'paid', until: '2026-12-31T00:00:00Z', daysLeft: 43 }, { docs: 2, ai: 5, fixedCosts: 1, goals: 1 }, { payable: true, earlyBird: false })],
     payments: [checkoutMessage(UUID, 'plus_early', 'https://sandbox-pgw-ui.2c2p.com/payment/4.5/#/token/abc'), paidMessage('pro', '2027-11-18T03:00:00Z'), renewalMessage('plus', '2026-12-18T03:00:00Z', false), renewalMessage('pro', '2026-12-18T03:00:00Z', true), planLimitMessage(new PlanLimitError('fixed_costs', 'free', 3), true)],
+    wealth: [
+      wealthPlanMessage({ period: periodFromKey('2026-11'), incomeSatang: 2_500_000, savingSatang: 300_000, savingsRateBp: 1200, avgMonthlyExpenseSatang: 1_500_000, emergencyTargetSatang: 4_500_000, emergency: null, goals: [], totalSavedSatang: 0, step: 1 }),
+      wealthPlanMessage({ period: periodFromKey('2026-11'), incomeSatang: 2_500_000, savingSatang: 600_000, savingsRateBp: 2400, avgMonthlyExpenseSatang: 1_500_000, emergencyTargetSatang: 4_500_000, emergency: computeSavingsProgress({ ...goal, name: 'เงินสำรองฉุกเฉิน', targetSatang: 4_500_000 }, [txn({ type: 'saving', categoryId: 'savings', amountSatang: 4_500_000, savingsGoalId: UUID })]), goals: [computeSavingsProgress({ ...goal, id: '22222222-2222-4222-8222-222222222222', name: LONG }, [])], totalSavedSatang: 4_500_000, step: 3 }),
+      saveFirstMessage(txn({ type: 'income', categoryId: 'salary', amountSatang: 2_512_345 })),
+      sweepMessage('2026-10', 412_350),
+      ...scanPrompt(),
+    ],
     import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };
 }

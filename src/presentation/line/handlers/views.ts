@@ -20,6 +20,8 @@ import { formatBaht, sumSatang } from '../../../domain/money.ts';
 import { pb } from '../flex/actions.ts';
 import { billChoice } from './edit-handler.ts';
 import { planStatusMessage } from '../flex/plans.ts';
+import { saveFirstMessage, sweepMessage, wealthPlanMessage } from '../flex/wealth.ts';
+import { SAVE_FIRST_MIN_INCOME } from '../../../domain/calculations/wealth.ts';
 
 export async function showDashboard(ctx: HandlerContext): Promise<Message[]> {
   const v = await ctx.deps.finance.dashboard(ctx.userId, ctx.today);
@@ -46,7 +48,15 @@ export async function showMonthSummary(ctx: HandlerContext, periodKey?: string):
   const v = await ctx.deps.finance.monthSummary(ctx.userId, ctx.today, periodKey);
   const more = (v.expenseChangeSatang ?? 0) > 0;
   const mascot: MascotExpression = v.available?.isNegative ? 'shocked' : more ? 'worried' : 'proud';
-  return [summaryMessage(v, await ctx.deps.personality.comment(more ? 'spent_more_than_before' : 'spent_less_than_before', v.start), mascot)];
+  const out: Message[] = [summaryMessage(v, await ctx.deps.personality.comment(more ? 'spent_more_than_before' : 'spent_less_than_before', v.start), mascot)];
+  // a finished period with money left → offer to sweep it into savings (once)
+  if (v.end < ctx.today) {
+    const user = await ctx.deps.repos.users.get(ctx.userId);
+    const key = ctx.deps.finance.periodFor(user!, v.start).key;
+    const l = await ctx.deps.wealth.leftover(ctx.userId, key);
+    if (l.leftoverSatang >= 10_000 && !l.swept) out.push(sweepMessage(key, l.leftoverSatang));
+  }
+  return out;
 }
 
 export async function showReportsMenu(ctx: HandlerContext): Promise<Message[]> {
@@ -155,6 +165,7 @@ export async function afterTransactionSaved(ctx: HandlerContext, t: Transaction)
       messages.push(mascotSays(`${await ctx.deps.personality.comment('goal_reached', t.id)}\n🎯 ${progress.goal.name}`, 'celebrating'));
     }
   }
+  if (t.type === 'income' && t.amountSatang >= SAVE_FIRST_MIN_INCOME) messages.push(saveFirstMessage(t));
   const user = await ctx.deps.repos.users.get(ctx.userId);
   if (user && user.onboarding !== 'done') {
     await ctx.deps.repos.users.setOnboarding(ctx.userId, 'done');
@@ -245,4 +256,20 @@ export async function showPlans(ctx: HandlerContext): Promise<Message[]> {
   const payable = !!ctx.deps.payments?.availableFor(ctx.userId);
   const earlyBird = payable ? await ctx.deps.payments!.earlyBirdAvailable(ctx.userId) : true;
   return [planStatusMessage(s, u, { payable, earlyBird })];
+}
+
+/** "แผนการเงิน" — savings rate + 4-step money ladder. */
+export async function showWealthPlan(ctx: HandlerContext): Promise<Message[]> {
+  return [wealthPlanMessage(await ctx.deps.wealth.plan(ctx.userId, ctx.today))];
+}
+
+/** Camera / photo shortcuts for slips and receipts. */
+export function scanPrompt(): Message[] {
+  return [
+    mascotSays('ส่งรูปสลิปโอนเงิน ใบเสร็จ หรือไฟล์ PDF statement มาได้เลย ชิกชิกอ่านยอด วันที่ และร้านให้เอง 📸', 'smart', [
+      { type: 'camera', label: '📷 ถ่ายสลิป/ใบเสร็จ' },
+      { type: 'cameraRoll', label: '🖼️ เลือกรูปสลิป' },
+      pb('พิมพ์เอง', 'add_expense'),
+    ]),
+  ];
 }

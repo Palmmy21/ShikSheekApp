@@ -27,12 +27,14 @@ export function createRichMenuSync(sql: Sql, line: LineClient, plans: Entitlemen
     async sync(userId: string, now?: Date, force = false): Promise<RichMenuVariant | null> {
       try {
         const v = variantFor(await plans.status(userId, now));
-        const rows = await sql.query<{ rich_menu_variant: RichMenuVariant | null }>(`select rich_menu_variant from users where line_user_id = $1`, [userId]);
-        if (!rows[0] || (!force && rows[0].rich_menu_variant === v)) return null;
+        const rows = await sql.query<{ rich_menu_id: string | null }>(`select rich_menu_id from users where line_user_id = $1`, [userId]);
+        if (!rows[0]) return null;
         const id = await menuId(v);
         if (!id) return null; // menus not set up yet
+        // compare menu ids (not just variants) so re-uploaded menus re-link everyone automatically
+        if (!force && rows[0].rich_menu_id === id) return null;
         await line.linkRichMenu(userId, id);
-        await sql.query(`update users set rich_menu_variant = $2 where line_user_id = $1`, [userId, v]);
+        await sql.query(`update users set rich_menu_variant = $2, rich_menu_id = $3 where line_user_id = $1`, [userId, v, id]);
         return v;
       } catch (err) {
         log.warn('rich_menu_sync_failed', { status: (err as { status?: number }).status ?? null });

@@ -40,7 +40,7 @@ export const TILES: readonly RichMenuTile[] = [
   { labelTh: 'จดรายรับ', labelEn: 'INCOME', mascot: 'saving', theme: 'white', action: 'add_income', displayText: 'จดรายรับ', openKeyboard: true },
   { labelTh: 'รายการ', labelEn: 'HISTORY', mascot: 'thinking', theme: 'white', liffTab: 'txns' },
   { labelTh: 'บิลประจำ', labelEn: 'BILLS', mascot: 'discipline', theme: 'white', action: 'fixed_costs', displayText: 'ค่าใช้จ่ายประจำ' },
-  { labelTh: 'งบ & เป้าออม', labelEn: 'BUDGETS', mascot: 'smart', theme: 'white', action: 'budgets', displayText: 'งบประมาณ' },
+  { labelTh: 'เงินเก็บ', labelEn: 'SAVINGS', mascot: 'smart', theme: 'yellow', action: 'wealth_plan', displayText: 'แผนการเงิน' },
   { labelTh: 'รายงาน', labelEn: 'REPORTS', mascot: 'planning', theme: 'deepRed', action: 'reports', displayText: 'รายงาน' },
   { labelTh: 'ตั้งค่า', labelEn: 'SETTINGS', mascot: 'sleepy', theme: 'white', liffTab: 'settings' },
 ];

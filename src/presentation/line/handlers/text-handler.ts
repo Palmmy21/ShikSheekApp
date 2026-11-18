@@ -40,6 +40,8 @@ import {
   proposeMulti,
   sendTestPush,
   showPlans,
+  showWealthPlan,
+  scanPrompt,
   showCategorySpend,
   showTodayList,
 } from './views.ts';
@@ -276,6 +278,10 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           return sendTestPush(ctx);
         case 'plans':
           return showPlans(ctx);
+        case 'wealth_plan':
+          return showWealthPlan(ctx);
+        case 'scan':
+          return scanPrompt();
         case 'my_id':
           return [text(`LINE user ID ของคุณ (ใช้ตั้งค่าผู้ทดสอบ/ติดต่อทีมงาน):
 ${userId}`)];
