@@ -5,6 +5,7 @@ import type { AppConfig } from './config/env.ts';
 import { createAiPersonality } from './application/personality/ai-assist.ts';
 import { createRuleBasedPersonality, type PersonalityService } from './application/personality/personality-service.ts';
 import { createClaudeAi, type AiClient } from './infrastructure/ai/claude.ts';
+import { createOpenRouterAi } from './infrastructure/ai/openrouter.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -26,19 +27,14 @@ export interface AppOverrides {
 
 export function createAppDeps(
   sql: Sql,
-  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL'>>,
+  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL'>>,
   overrides: AppOverrides = {},
 ): AppDeps {
   configureAssetBaseUrl(config.PUBLIC_ASSET_BASE_URL);
   if (config.DATA_EXPORT_URL) configureExportBaseUrl(config.DATA_EXPORT_URL);
   configureLiffUrl(config.LIFF_URL);
   const repos = createRepos(sql);
-  const ai =
-    overrides.ai !== undefined
-      ? overrides.ai ?? undefined
-      : config.ANTHROPIC_API_KEY
-        ? createClaudeAi({ apiKey: config.ANTHROPIC_API_KEY, model: config.AI_MODEL ?? 'claude-opus-5-5' })
-        : undefined;
+  const ai = overrides.ai !== undefined ? overrides.ai ?? undefined : createAiFromConfig(config);
   const personality =
     overrides.personality ?? (ai && config.AI_PERSONALITY === 'true' ? createAiPersonality(ai) : createRuleBasedPersonality());
   return {
@@ -53,4 +49,16 @@ export function createAppDeps(
     clock: overrides.clock ?? (() => new Date()),
     log: overrides.log ?? consoleLogger,
   };
+}
+
+/** Pick the AI provider from config. No key → no AI (rule-based only). */
+export function createAiFromConfig(config: Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL'>>): AiClient | undefined {
+  const provider = config.AI_PROVIDER ?? (config.OPENROUTER_API_KEY ? 'openrouter' : config.ANTHROPIC_API_KEY ? 'anthropic' : null);
+  if (provider === 'openrouter' && config.OPENROUTER_API_KEY) {
+    return createOpenRouterAi({ apiKey: config.OPENROUTER_API_KEY, model: config.AI_MODEL ?? 'anthropic/claude-opus-5.5', siteUrl: 'https://shiksheek.vercel.app' });
+  }
+  if (provider === 'anthropic' && config.ANTHROPIC_API_KEY) {
+    return createClaudeAi({ apiKey: config.ANTHROPIC_API_KEY, model: config.AI_MODEL ?? 'claude-opus-5-5' });
+  }
+  return undefined;
 }

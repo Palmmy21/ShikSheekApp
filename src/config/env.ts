@@ -18,7 +18,11 @@ const schema = z.object({
   /** https://liff.line.me/<liff-id> — linked from bot cards. */
   LIFF_URL: z.string().url().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('claude-opus-5-5'),
+  OPENROUTER_API_KEY: z.string().optional(),
+  /** anthropic | openrouter. Default: whichever key is set (OpenRouter wins if both). */
+  AI_PROVIDER: z.enum(['anthropic', 'openrouter']).optional(),
+  /** Model id for the chosen provider. Defaults: claude-opus-5-5 (Anthropic) / anthropic/claude-opus-5.5 (OpenRouter). */
+  AI_MODEL: z.string().optional(),
   /** 'true' = AI also writes the mascot's one-liners (adds latency to every reply). */
   AI_PERSONALITY: z.enum(['true', 'false']).default('false'),
 });
