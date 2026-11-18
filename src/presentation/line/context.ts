@@ -25,7 +25,7 @@ export interface AppDeps {
   finance: FinanceService;
   /** plan, limits and metered usage */
   plans: EntitlementService;
-  /** PromptPay checkout via 2C2P; absent until merchant credentials are configured. */
+  /** PromptPay checkout via Stripe; absent until merchant credentials are configured. */
   payments?: PaymentService;
   personality: PersonalityService;
   /** Optional Claude layer for messages the rule-based parser cannot understand. */

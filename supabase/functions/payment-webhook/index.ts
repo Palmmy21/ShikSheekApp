@@ -1,7 +1,7 @@
 /**
- * 2C2P backend notification (backendReturnUrl).
+ * Stripe webhook (checkout.session.completed / async_payment_succeeded).
  * URL: https://<project-ref>.supabase.co/functions/v1/payment-webhook   (verify_jwt = false)
- * Authenticity: HS256 JWT signed with the 2C2P merchant secret + paymentInquiry confirmation.
+ * Authenticity: Stripe-Signature (STRIPE_WEBHOOK_SECRET) + server-side session re-fetch.
  */
 import { handlePaymentNotification } from '../../../src/presentation/payments/webhook.ts';
 import { bootstrap } from '../_shared/bootstrap.ts';

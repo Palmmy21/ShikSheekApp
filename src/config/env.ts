@@ -25,16 +25,16 @@ const schema = z.object({
   AI_MODEL: z.string().optional(),
   /** 'true' = AI also writes the mascot's one-liners (adds latency to every reply). */
   AI_PERSONALITY: z.enum(['true', 'false']).default('false'),
-  /** 2C2P PGW v4.5 merchant credentials. Both set → in-chat PromptPay checkout is enabled. */
-  TWOC2P_MERCHANT_ID: z.string().min(1).optional(),
-  TWOC2P_SECRET_KEY: z.string().min(16).optional(),
-  TWOC2P_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  /** Comma-separated 2C2P paymentChannel codes for the hosted page (PromptPay / Thai QR). */
-  TWOC2P_CHANNELS: z.string().default('QR'),
-  /** Thank-you page 2C2P redirects to after paying. */
+  /** Stripe secret key (sk_test_… / sk_live_…). Set → in-chat PromptPay checkout is enabled. */
+  STRIPE_SECRET_KEY: z.string().regex(/^(sk|rk)_(test|live)_/, 'STRIPE_SECRET_KEY must be a Stripe secret key').optional(),
+  /** Signing secret of the Stripe webhook endpoint (whsec_…). Without it, the "ตรวจสอบ" button still works. */
+  STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_/).optional(),
+  /** Optional Stripe payment method configuration id (pmc_…) to pin the methods Checkout shows. */
+  STRIPE_PAYMENT_METHOD_CONFIG: z.string().regex(/^pmc_/).optional(),
+  /** With a TEST key only these LINE user ids (comma-separated) can buy, so nobody gets free plans. */
+  PAYMENT_TEST_USERS: z.string().default(''),
+  /** Thank-you page after paying / cancelling. */
   PAYMENT_RETURN_URL: z.string().url().default('https://shiksheek.vercel.app/paid'),
-  /** Public URL of the payment-webhook function (defaults from SUPABASE_URL). */
-  PAYMENT_NOTIFY_URL: z.string().url().optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;
@@ -47,7 +47,6 @@ export function loadConfig(get: (key: string) => string | undefined): AppConfig 
     throw new Error(`Invalid configuration — ${problems}`);
   }
   const cfg = parsed.data;
-  if (!cfg.PAYMENT_NOTIFY_URL && cfg.SUPABASE_URL) cfg.PAYMENT_NOTIFY_URL = `${cfg.SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/payment-webhook`;
   if (!cfg.DATA_EXPORT_URL && cfg.SUPABASE_URL) cfg.DATA_EXPORT_URL = `${cfg.SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/data-export`;
   return cfg;
 }

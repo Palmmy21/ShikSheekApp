@@ -8,7 +8,8 @@ import { createClaudeAi, type AiClient } from './infrastructure/ai/claude.ts';
 import { createOpenRouterAi } from './infrastructure/ai/openrouter.ts';
 import { createEntitlementService } from './application/services/entitlement-service.ts';
 import { createPaymentService } from './application/services/payment-service.ts';
-import { createTwoC2PGateway, type PaymentGateway } from './infrastructure/payments/twoc2p.ts';
+import type { PaymentGateway } from './infrastructure/payments/gateway.ts';
+import { createStripeGateway } from './infrastructure/payments/stripe.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -32,7 +33,7 @@ export interface AppOverrides {
 
 export function createAppDeps(
   sql: Sql,
-  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL' | 'TWOC2P_MERCHANT_ID' | 'TWOC2P_SECRET_KEY' | 'TWOC2P_ENV' | 'TWOC2P_CHANNELS' | 'PAYMENT_RETURN_URL' | 'PAYMENT_NOTIFY_URL'>>,
+  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL' | 'STRIPE_SECRET_KEY' | 'STRIPE_WEBHOOK_SECRET' | 'STRIPE_PAYMENT_METHOD_CONFIG' | 'PAYMENT_TEST_USERS' | 'PAYMENT_RETURN_URL'>>,
   overrides: AppOverrides = {},
 ): AppDeps {
   configureAssetBaseUrl(config.PUBLIC_ASSET_BASE_URL);
@@ -43,12 +44,12 @@ export function createAppDeps(
   const clock = overrides.clock ?? (() => new Date());
   const gateway =
     overrides.gateway ??
-    (config.TWOC2P_MERCHANT_ID && config.TWOC2P_SECRET_KEY && config.PAYMENT_NOTIFY_URL
-      ? createTwoC2PGateway({
-          merchantId: config.TWOC2P_MERCHANT_ID,
-          secretKey: config.TWOC2P_SECRET_KEY,
-          env: config.TWOC2P_ENV ?? 'sandbox',
-          channels: (config.TWOC2P_CHANNELS ?? 'QR').split(',').map((c) => c.trim()).filter(Boolean),
+    (config.STRIPE_SECRET_KEY
+      ? createStripeGateway({
+          secretKey: config.STRIPE_SECRET_KEY,
+          ...(config.STRIPE_WEBHOOK_SECRET ? { webhookSecret: config.STRIPE_WEBHOOK_SECRET } : {}),
+          ...(config.STRIPE_PAYMENT_METHOD_CONFIG ? { paymentMethodConfiguration: config.STRIPE_PAYMENT_METHOD_CONFIG } : {}),
+          now: () => clock().getTime(),
         })
       : undefined);
   const personality =
@@ -60,7 +61,7 @@ export function createAppDeps(
     fixedCosts: createFixedCostService(sql, repos),
     finance: createFinanceService(sql, repos),
     plans: createEntitlementService(repos, clock),
-    ...(gateway ? { payments: createPaymentService(repos, gateway, { returnUrl: config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid', notifyUrl: config.PAYMENT_NOTIFY_URL ?? 'https://invalid.example/payment-webhook' }, clock) } : {}),
+    ...(gateway ? { payments: createPaymentService(repos, gateway, { returnUrl: config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid', cancelUrl: `${config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid'}?cancelled=1` }, clock, { allowedUsers: overrides.gateway || config.STRIPE_SECRET_KEY?.includes('_live_') ? null : new Set((config.PAYMENT_TEST_USERS ?? '').split(',').map((u) => u.trim()).filter(Boolean)) }) } : {}),
     personality,
     ...(ai ? { ai } : {}),
     line: overrides.line ?? createLineClient(config.LINE_CHANNEL_ACCESS_TOKEN),

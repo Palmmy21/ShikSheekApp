@@ -27,7 +27,7 @@ export async function buildReply(event: LineEvent, deps: AppDeps): Promise<Messa
     return await buildReplyInner(event, deps);
   } catch (e) {
     // A plan limit anywhere in a handler becomes a friendly upgrade card, never an error.
-    if (e instanceof PlanLimitError) return [planLimitMessage(e, !!deps.payments)];
+    if (e instanceof PlanLimitError) return [planLimitMessage(e, !!deps.payments?.availableFor(userIdOf(event) ?? ''))];
     throw e;
   }
 }

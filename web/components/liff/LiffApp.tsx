@@ -524,7 +524,7 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      // Back from the 2C2P page? Confirm the payment once, then show the fresh plan.
+      // Back from the Stripe page? Confirm the payment once, then show the fresh plan.
       let pending: string | null = null;
       try { pending = sessionStorage.getItem('shiksheek:pay'); } catch {}
       if (pending) {
@@ -543,7 +543,7 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
     try {
       const r = await api<{ paymentId: string; url: string }>('/plan/checkout', { method: 'POST', body: { product } });
       try { sessionStorage.setItem('shiksheek:pay', r.paymentId); } catch {}
-      window.location.href = r.url; // 2C2P hosted PromptPay page
+      window.location.href = r.url; // Stripe Checkout (PromptPay)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'เปิดหน้าชำระเงินไม่ได้');
     }

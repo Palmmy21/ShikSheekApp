@@ -291,7 +291,7 @@ export const postbackHandlers: Handlers = {
   plans: (ctx) => showPlans(ctx),
   pay_start: async (ctx, { p }) => {
     const payments = ctx.deps.payments;
-    if (!payments) return showPlans(ctx);
+    if (!payments?.availableFor(ctx.userId)) return showPlans(ctx);
     try {
       const { payment, url } = await payments.checkout(ctx.userId, p);
       return [checkoutMessage(payment.id, p, url)];

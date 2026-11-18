@@ -18,7 +18,7 @@ function priceLine(p: PaidPlan): string {
 
 /** How the plan cards can be acted on right now. */
 export interface CheckoutOptions {
-  /** PromptPay checkout configured (2C2P) */
+  /** PromptPay checkout configured (Stripe) */
   payable: boolean;
   /** early-bird Plus price still available to this user */
   earlyBird: boolean;
@@ -47,7 +47,7 @@ function planCard(p: PaidPlan, current: boolean, o: CheckoutOptions): FlexBubble
   });
 }
 
-/** After tapping a buy button: open 2C2P's PromptPay page, then confirm. */
+/** After tapping a buy button: open the Stripe PromptPay page, then confirm. */
 export function checkoutMessage(paymentId: string, product: ProductId, url: string): FlexMessage {
   const p = PRODUCTS[product];
   return flex(`ชำระ ${p.label} ฿${p.baht}`, {
@@ -58,7 +58,7 @@ export function checkoutMessage(paymentId: string, product: ProductId, url: stri
       txt('1. แตะ "เปิดหน้าชำระเงิน" จะเห็น QR PromptPay', { size: 'sm', wrap: true }),
       txt('2. สแกนจ่ายด้วยแอปธนาคาร (หรือบันทึกรูป QR แล้วเปิดในแอป)', { size: 'sm', wrap: true }),
       txt('3. จ่ายเสร็จ ชิกชิกจะแจ้งในแชทอัตโนมัติ', { size: 'sm', wrap: true }),
-      txt(`ใช้ได้ ${p.days} วัน · ไม่ต่ออายุอัตโนมัติ · QR หมดอายุใน 20 นาที`, { size: 'xs', color: BRAND.muted, wrap: true }),
+      txt(`ใช้ได้ ${p.days} วัน · ไม่ต่ออายุอัตโนมัติ · ลิงก์หมดอายุใน 1 ชั่วโมง`, { size: 'xs', color: BRAND.muted, wrap: true }),
     ], { spacing: 'sm' }),
     footer: vbox([
       button({ type: 'uri', label: 'เปิดหน้าชำระเงิน', uri: url }, 'primary', { color: PLAN_COLOR[p.plan] }),

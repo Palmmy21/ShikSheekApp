@@ -11,6 +11,7 @@ export interface Payment {
   amountSatang: number;
   status: 'pending' | 'paid' | 'expired';
   paymentUrl: string | null;
+  gatewayRef: string | null;
   createdAt: string;
   paidAt: string | null;
 }
@@ -25,10 +26,11 @@ interface Row {
   amount_satang: unknown;
   status: Payment['status'];
   payment_url: string | null;
+  gateway_ref: string | null;
   created_at: unknown;
   paid_at: unknown;
 }
-const COLS = 'id, user_id, invoice_no, product, plan, days, amount_satang, status, payment_url, created_at, paid_at';
+const COLS = 'id, user_id, invoice_no, product, plan, days, amount_satang, status, payment_url, gateway_ref, created_at, paid_at';
 const map = (r: Row): Payment => ({
   id: r.id,
   userId: r.user_id,
@@ -39,6 +41,7 @@ const map = (r: Row): Payment => ({
   amountSatang: Number(r.amount_satang),
   status: r.status,
   paymentUrl: r.payment_url,
+  gatewayRef: r.gateway_ref,
   createdAt: toIso(r.created_at),
   paidAt: r.paid_at ? toIso(r.paid_at) : null,
 });
@@ -53,8 +56,8 @@ export function paymentRepo(sql: Sql) {
       );
       return map(rows[0]!);
     },
-    async setUrl(id: string, url: string): Promise<void> {
-      await sql.query(`update payments set payment_url = $2 where id = $1`, [id, url]);
+    async setCheckout(id: string, url: string, gatewayRef: string): Promise<void> {
+      await sql.query(`update payments set payment_url = $2, gateway_ref = $3 where id = $1`, [id, url, gatewayRef]);
     },
     async get(userId: string, id: string): Promise<Payment | null> {
       const rows = await sql.query<Row>(`select ${COLS} from payments where id = $1 and user_id = $2`, [id, userId]);

@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: 'ชำระเงินเรีย
 
 const LINE_CHAT = 'https://line.me/R/ti/p/%40541ywsff';
 
-/** 2C2P redirects here after the PromptPay page. The plan is granted server-side, never from this page. */
+/** Stripe Checkout redirects here after paying (or with ?cancelled=1). The plan is granted server-side, never from this page. */
 export default function Paid() {
   return (
     <main className="legal legal--center">

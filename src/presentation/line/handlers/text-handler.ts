@@ -276,6 +276,9 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           return sendTestPush(ctx);
         case 'plans':
           return showPlans(ctx);
+        case 'my_id':
+          return [text(`LINE user ID ของคุณ (ใช้ตั้งค่าผู้ทดสอบ/ติดต่อทีมงาน):
+${userId}`)];
       }
       break;
     case 'extra_query':
