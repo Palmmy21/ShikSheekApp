@@ -3,6 +3,9 @@ import {
   Plus, ShieldCheck, Smartphone, Sparkles,
 } from 'lucide-react';
 import { ChatDemo } from '@/components/ChatDemo';
+import { LiveMascot } from '@/components/LiveMascot';
+import { CountUp, Reveal } from '@/components/Motion';
+import { TryIt } from '@/components/TryIt';
 import { TintIcon } from '@/components/icons';
 
 /** Add-friend link of the ShikSheek OA (@541ywsff). Opens the LINE app on phones, a QR page on desktop. */
@@ -20,14 +23,14 @@ const FEATURES = [
 ] as const;
 
 const MOODS = [
-  { mascot: 'proud', label: 'เงินเหลือเยอะ' },
-  { mascot: 'happy', label: 'จดสำเร็จ' },
-  { mascot: 'celebrating', label: 'เงินเข้า' },
-  { mascot: 'worried', label: 'เหลือน้อย' },
-  { mascot: 'angry', label: 'เกินงบ' },
-  { mascot: 'shocked', label: 'ติดลบ' },
-  { mascot: 'thinking', label: 'ขอถามก่อน' },
-  { mascot: 'sleepy', label: 'พักบิล' },
+  { mascot: 'proud', label: 'เงินเหลือเยอะ', quote: 'ภูมิใจในตัวเธอสุดๆ' },
+  { mascot: 'happy', label: 'จดสำเร็จ', quote: 'จดให้แล้วจ้า!' },
+  { mascot: 'celebrating', label: 'เงินเข้า', quote: 'ขอเต้นหน่อย~' },
+  { mascot: 'worried', label: 'เหลือน้อย', quote: 'ค่อยๆ ใช้นะ' },
+  { mascot: 'angry', label: 'เกินงบ', quote: 'ฮึ่ม! เกินแล้วนะ' },
+  { mascot: 'shocked', label: 'ติดลบ', quote: 'ตกใจหมดเลย!' },
+  { mascot: 'thinking', label: 'ขอถามก่อน', quote: 'อันนี้หมวดไหนน้า?' },
+  { mascot: 'sleepy', label: 'พักบิล', quote: 'ไว้ค่อยว่ากัน zzz' },
 ] as const;
 
 const TRUST = [
@@ -109,6 +112,7 @@ export default function Home() {
             <div className="hero__visual">
               <div className="blob" aria-hidden="true" />
               <ChatDemo />
+              <div className="hero__live"><LiveMascot size={150} /></div>
             </div>
           </div>
         </section>
@@ -121,6 +125,17 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="section section--tight" id="try">
+          <div className="wrap split">
+            <Reveal>
+              <p className="kicker">ลองเลย ไม่ต้องสมัคร</p>
+              <h2><span className="nb">พิมพ์แบบที่คุณพูด</span> <span className="nb">ชิกชิกเข้าใจ</span></h2>
+              <p className="lead">จดทีละรายการหรือหลายรายการในข้อความเดียวก็ได้ อยากแก้บิลก็แค่บอกชื่อ เช่น &ldquo;ค่าห้อง เปลี่ยน 2000 3000&rdquo; ถ้าไม่แน่ใจ ชิกชิกจะถามก่อนเสมอ</p>
+            </Reveal>
+            <Reveal delay={120}><TryIt /></Reveal>
+          </div>
+        </section>
+
         <section className="section" id="available">
           <div className="wrap split">
             <div>
@@ -129,14 +144,14 @@ export default function Home() {
               <p className="lead">ยอดในบัญชีไม่ใช่เงินที่ใช้ได้ ชิกชิกหักบิลที่ยังไม่จ่ายและเงินที่ตั้งใจออมให้ก่อน แล้วบอกว่าใช้ได้วันละเท่าไหร่</p>
             </div>
             <div className="equation" role="img" aria-label="รายรับ 25,000 ลบใช้ไป 4,320 ลบบิลค้างจ่าย 7,099 ลบกันไว้ออม 1,101 เหลือใช้ได้ 12,480 บาท หรือวันละ 960 บาท">
-              <div className="eq-row"><span>รายรับ</span><b className="pos">฿25,000</b></div>
-              <div className="eq-row"><span>ใช้ไปแล้ว</span><b>− ฿4,320</b></div>
-              <div className="eq-row"><span>บิลค้างจ่าย</span><b>− ฿7,099</b></div>
-              <div className="eq-row"><span>กันไว้ออม</span><b>− ฿1,101</b></div>
+              <div className="eq-row"><span>รายรับ</span><b className="pos"><CountUp to={25000} /></b></div>
+              <div className="eq-row"><span>ใช้ไปแล้ว</span><b>− <CountUp to={4320} /></b></div>
+              <div className="eq-row"><span>บิลค้างจ่าย</span><b>− <CountUp to={7099} /></b></div>
+              <div className="eq-row"><span>กันไว้ออม</span><b>− <CountUp to={1101} /></b></div>
               <div className="eq-total">
                 <div>
                   <small>ใช้ได้อีก</small>
-                  <strong>฿12,480</strong>
+                  <strong><CountUp to={12480} duration={1300} /></strong>
                   <em>วันละ ฿960 · เหลือ 13 วัน</em>
                 </div>
                 <img src="/mascot/proud.png" alt="" width={88} height={88} />
@@ -147,17 +162,17 @@ export default function Home() {
 
         <section className="section section--white" id="features">
           <div className="wrap">
-            <div className="section__head">
+            <Reveal className="section__head">
               <p className="kicker">ครบในแชทเดียว</p>
               <h2>จดง่าย ดูง่าย ไม่พลาดอะไร</h2>
-            </div>
+            </Reveal>
             <div className="features">
               {FEATURES.map((f) => (
-                <article key={f.title} className="feature">
+                <Reveal key={f.title} delay={FEATURES.indexOf(f) * 70}><article className="feature">
                   <TintIcon icon={f.icon} tint={f.tint} />
                   <h3>{f.title}</h3>
                   <p>{f.body}</p>
-                </article>
+                </article></Reveal>
               ))}
             </div>
           </div>
@@ -165,10 +180,10 @@ export default function Home() {
 
         <section className="section section--white" id="how">
           <div className="wrap">
-            <div className="section__head">
+            <Reveal className="section__head">
               <p className="kicker">เริ่มได้ในหนึ่งนาที</p>
               <h2>สามขั้นเท่านั้น</h2>
-            </div>
+            </Reveal>
             <ol className="steps">
               <li><span className="steps__n">1</span><h3>เพิ่มเพื่อน</h3><p>เพิ่ม ShikSheek ใน LINE เลือกวันเริ่มรอบเดือน แล้วบอกรายรับ</p></li>
               <li><span className="steps__n">2</span><h3>พิมพ์หรือส่งสลิป</h3><p>&ldquo;ซื้อกาแฟ 80 เมื่อวาน&rdquo; หรือส่งรูปสลิป ไม่แน่ใจชิกชิกจะถามก่อน</p></li>
@@ -183,14 +198,15 @@ export default function Home() {
 
         <section className="section moods" aria-labelledby="moods-title">
           <div className="wrap">
-            <div className="section__head">
+            <Reveal className="section__head">
               <p className="kicker">น่ารักแต่จริงจัง</p>
               <h2 id="moods-title"><span className="nb">ชิกชิกรู้สึก</span><span className="nb">ไปกับเงินของคุณ</span></h2>
               <p className="lead">อารมณ์ของชิกชิกเปลี่ยนตามสถานะการเงินจริง เห็นปุ๊บรู้เลยว่าเดือนนี้เป็นยังไง</p>
-            </div>
+            </Reveal>
             <ul className="moods__grid">
               {MOODS.map((m) => (
-                <li key={m.mascot} className="mood">
+                <li key={m.mascot} className="mood" tabIndex={0}>
+                  <span className="mood__quote" aria-hidden="true">{m.quote}</span>
                   <img src={`/mascot/${m.mascot}.png`} alt="" width={112} height={112} loading="lazy" />
                   <span>{m.label}</span>
                 </li>
@@ -201,10 +217,10 @@ export default function Home() {
 
         <section className="section section--white" id="trust">
           <div className="wrap">
-            <div className="section__head">
+            <Reveal className="section__head">
               <p className="kicker">น่ารักแต่ไม่มั่ว</p>
               <h2>เรื่องเงิน <span className="nb">ต้องแม่นก่อนน่ารัก</span></h2>
-            </div>
+            </Reveal>
             <ul className="trust">
               {TRUST.map((t) => (
                 <li key={t.title}>
@@ -236,7 +252,7 @@ export default function Home() {
         <section className="final" id="start">
           <div className="wrap">
             <div className="final__card">
-              <img src="/mascot/encouraging.png" alt="" width={180} height={180} loading="lazy" />
+              <LiveMascot size={190} />
               <div>
                 <h2>พร้อมให้เรื่องเงิน<span className="nb">เป็นเรื่องชิกชิก</span>หรือยัง?</h2>
                 <p>เพิ่มเพื่อนแล้วพิมพ์ &ldquo;กินข้าว 65&rdquo; ดูเลย <span className="nb">ชิกชิกรออยู่</span></p>
