@@ -2,7 +2,7 @@
  * Fixed Cost use cases: create, occurrence generation (idempotent), pay/skip, pause/resume/delete.
  * Reminders never create transactions; only an explicit, confirmed "paid" does.
  */
-import { addDays, maxDate, type LocalDate } from '../../domain/dates.ts';
+import { addDays, makeDateClamped, maxDate, parseLocalDate, type LocalDate } from '../../domain/dates.ts';
 import { toOccurrenceView, type OccurrenceView } from '../../domain/calculations/bills.ts';
 import type { FixedCost, FixedCostOccurrence, Transaction } from '../../domain/entities/index.ts';
 import { isValidPositiveAmount, type Satang } from '../../domain/money.ts';
@@ -154,6 +154,26 @@ export function createFixedCostService(sql: Sql, repos: Repos = createRepos(sql)
         });
         return { status: 'paid' as const, transaction, occurrence: flipped };
       });
+    },
+
+    async updateAmount(userId: string, fixedCostId: string, amountSatang: Satang, today: LocalDate): Promise<boolean> {
+      if (!isValidPositiveAmount(amountSatang)) throw new ValidationError('amount', 'จำนวนเงินไม่ถูกต้อง');
+      return repos.fixedCosts.updateAmount(userId, fixedCostId, amountSatang, today);
+    },
+
+    /** Monthly bills only: move the due day; the next bill is the first such day from today. */
+    async changeDay(userId: string, fixedCostId: string, day: number, today: LocalDate): Promise<{ ok: true; nextDue: LocalDate } | { ok: false; reason: 'not_found' | 'not_monthly' | 'invalid_day' }> {
+      if (!Number.isInteger(day) || day < 1 || day > 31) return { ok: false, reason: 'invalid_day' };
+      const fc = await repos.fixedCosts.get(userId, fixedCostId);
+      if (!fc) return { ok: false, reason: 'not_found' };
+      if (fc.frequency !== 'monthly') return { ok: false, reason: 'not_monthly' };
+      const { year, month } = parseLocalDate(today);
+      let anchor = makeDateClamped(year, month, day);
+      if (anchor < today) anchor = makeDateClamped(year, month + 1, day);
+      await repos.fixedCosts.reanchor(userId, fixedCostId, anchor, today);
+      const updated = await repos.fixedCosts.get(userId, fixedCostId);
+      if (updated) await service.generateFor(updated, addDays(today, GENERATION_HORIZON_DAYS));
+      return { ok: true, nextDue: anchor };
     },
 
     async skip(userId: string, occurrenceId: string): Promise<FixedCostOccurrence | null> {

@@ -98,6 +98,15 @@ export function goalRepo(sql: Sql) {
       );
       return rows.map(mapGoal);
     },
+    async update(userId: string, id: string, patch: { targetSatang?: number; monthlyReserveSatang?: number }): Promise<boolean> {
+      const rows = await sql.query(
+        `update savings_goals set target_satang = coalesce($3::bigint, target_satang), monthly_reserve_satang = coalesce($4::bigint, monthly_reserve_satang)
+         where user_id = $1 and id = $2 returning 1`,
+        [userId, id, patch.targetSatang ?? null, patch.monthlyReserveSatang ?? null],
+      );
+      return rows.length === 1;
+    },
+
     async setStatus(userId: string, id: string, status: SavingsGoalStatus): Promise<boolean> {
       const rows = await sql.query('update savings_goals set status = $3 where user_id = $1 and id = $2 returning 1', [userId, id, status]);
       return rows.length === 1;

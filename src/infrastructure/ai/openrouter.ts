@@ -105,8 +105,9 @@ export function createOpenRouterAi(opts: {
   }
 
   return {
-    interpret(text) {
-      return structured(AiIntentSchema, 'intent', INTERPRET_SYSTEM, text.slice(0, 500), 1_024, opts.timeoutMs ?? 8_000);
+    interpret(text, context) {
+      const user = context ? `Known items: ${context.slice(0, 1500)}\nMessage: ${text.slice(0, 500)}` : text.slice(0, 500);
+      return structured(AiIntentSchema, 'intent', INTERPRET_SYSTEM, user, 1_024, opts.timeoutMs ?? 8_000);
     },
 
     extractDocument(bytes, mediaType) {

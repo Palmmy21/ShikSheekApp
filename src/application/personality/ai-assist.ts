@@ -11,6 +11,7 @@ import { getCategory, isKnownCategory } from '../../domain/entities/categories.t
 import { isValidPositiveAmount, parseBahtToSatang } from '../../domain/money.ts';
 import type { AiClient, AiIntent } from '../../infrastructure/ai/claude.ts';
 import type { ParseResult } from '../parser/intent-parser.ts';
+import type { EditIntent } from '../parser/edit-parser.ts';
 import { extractAmounts, normalizeText } from '../parser/normalize.ts';
 import type { PersonalityService } from './personality-service.ts';
 import { line, type Situation } from './rule-based.ts';
@@ -78,4 +79,37 @@ export function createAiPersonality(ai: AiClient): PersonalityService {
       return isSafeChatLine(text) ? text : fallback;
     },
   };
+}
+
+/**
+ * AI "edit" proposal → EditIntent. The AI only names the item and copies numbers; numbers must
+ * appear verbatim in the user's text and the item is resolved (or asked about) by the app.
+ */
+export function aiEditToIntent(intent: AiIntent, originalText: string): EditIntent | null {
+  if (intent.kind !== 'edit' || !intent.edit_action || !intent.target_name?.trim()) return null;
+  const target = intent.target_name.trim().slice(0, 60);
+  const scope = intent.edit_scope ?? null;
+  const present = extractAmounts(normalizeText(originalText)).map((a) => a.satang);
+  const verified = (t: string | null) => {
+    if (!t) return null;
+    const v = parseBahtToSatang(t.replace(/[\s,฿]|บาท/g, ''));
+    return v !== null && isValidPositiveAmount(v) && present.includes(v) ? v : null;
+  };
+  switch (intent.edit_action) {
+    case 'set_amount': {
+      const newAmount = verified(intent.new_amount_text);
+      if (newAmount === null) return null;
+      return { kind: 'edit', action: 'set_amount', target, newAmount, oldAmount: verified(intent.old_amount_text), scope };
+    }
+    case 'set_reserve': {
+      const newAmount = verified(intent.new_amount_text);
+      return newAmount === null ? null : { kind: 'edit', action: 'set_reserve', target, newAmount, scope: 'goal' };
+    }
+    case 'set_day': {
+      const d = intent.day_of_month;
+      return d && d >= 1 && d <= 31 && normalizeText(originalText).includes(String(d)) ? { kind: 'edit', action: 'set_day', target, day: d, scope: 'fixed_cost' } : null;
+    }
+    default:
+      return { kind: 'edit', action: intent.edit_action, target, scope };
+  }
 }

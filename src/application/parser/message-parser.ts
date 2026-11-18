@@ -13,6 +13,7 @@ import { CATEGORIES, getCategory, type Category } from '../../domain/entities/ca
 import { TOTAL_BUDGET_CATEGORY } from '../../domain/entities/index.ts';
 import { isValidPositiveAmount, type Satang } from '../../domain/money.ts';
 import { extractDate } from './dates.ts';
+import { parseEdit, type EditIntent } from './edit-parser.ts';
 import { matchCategory, parseIntent, type ParseResult, type TransactionProposal } from './intent-parser.ts';
 import { extractAmounts, normalizeText, removeSpans } from './normalize.ts';
 
@@ -20,6 +21,7 @@ export const MAX_ITEMS_PER_MESSAGE = 15;
 
 export type MessageParse =
   | ParseResult
+  | EditIntent
   | { kind: 'multi'; items: TransactionProposal[] }
   | { kind: 'command'; command: 'delete_last' }
   | { kind: 'command'; command: 'edit_last'; amountSatang: Satang }
@@ -103,6 +105,8 @@ export function parseMessage(input: string, today: LocalDate): MessageParse {
 
   const command = parseCommand(text);
   if (command) return command;
+  const edit = text.includes('\n') ? null : parseEdit(text);
+  if (edit) return edit;
   const extra = parseExtraQuery(text);
   if (extra) return extra;
 

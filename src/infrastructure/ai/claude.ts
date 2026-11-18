@@ -17,7 +17,7 @@ export function createClaudeAi(opts: { apiKey: string; model: string; timeoutMs?
   const client = new Anthropic({ apiKey: opts.apiKey, timeout: opts.timeoutMs ?? 8_000, maxRetries: 0 });
 
   return {
-    async interpret(text) {
+    async interpret(text, context) {
       try {
         const response = await client.beta.messages.parse({
           model: opts.model,
@@ -26,7 +26,7 @@ export function createClaudeAi(opts: { apiKey: string; model: string; timeoutMs?
           fallbacks: 'default',
           output_config: { effort: 'low', format: betaZodOutputFormat(AiIntentSchema) },
           system: INTERPRET_SYSTEM,
-          messages: [{ role: 'user', content: text.slice(0, 500) }],
+          messages: [{ role: 'user', content: context ? `Known items: ${context.slice(0, 1500)}\nMessage: ${text.slice(0, 500)}` : text.slice(0, 500) }],
         });
         if (response.stop_reason === 'refusal') return null;
         return response.parsed_output ?? null;

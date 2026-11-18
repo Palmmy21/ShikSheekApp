@@ -35,6 +35,9 @@ export const ACTION_PARAMS = {
   multi_confirm: z.object({ id: uuid }), // several items from one message
   multi_undo: z.object({ id: uuid }), // undo a batch saved by auto-record (holder id)
   auto_record_toggle: z.object({ on: z.enum(['1', '0']) }),
+  edit_pick: z.object({ id: uuid, i: z.coerce.number().int().min(0).max(11) }), // "หมายถึงอันไหน?" choice
+  edit_confirm: z.object({ id: uuid }),
+  fc_pay_amount: z.object({ id: uuid, amt: z.coerce.number().int().positive().max(100_000_000_000) }), // pay bill with typed amount
 
   // fixed costs
   fc_add: z.object({}),

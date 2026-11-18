@@ -13,7 +13,7 @@ const QUERY_INTENTS = [
 ] as const;
 
 export const AiIntentSchema = z.object({
-  kind: z.enum(['transaction', 'query', 'chitchat', 'unknown']),
+  kind: z.enum(['transaction', 'query', 'chitchat', 'edit', 'unknown']),
   type: z.enum(['income', 'expense']).nullable(),
   /** The amount EXACTLY as written in the message (e.g. "1,250" or "80"); verified by code. */
   amount_text: z.string().nullable(),
@@ -24,6 +24,13 @@ export const AiIntentSchema = z.object({
   query: z.enum(QUERY_INTENTS).nullable(),
   /** chitchat only: a short friendly Thai reply without any numbers */
   reply: z.string().nullable(),
+  /** edit only */
+  edit_action: z.enum(['set_amount', 'set_day', 'set_reserve', 'pause', 'resume', 'delete']).nullable(),
+  edit_scope: z.enum(['fixed_cost', 'goal', 'budget', 'transaction']).nullable(),
+  target_name: z.string().nullable(),
+  new_amount_text: z.string().nullable(),
+  old_amount_text: z.string().nullable(),
+  day_of_month: z.number().int().nullable(),
 });
 export type AiIntent = z.infer<typeof AiIntentSchema>;
 
@@ -48,7 +55,8 @@ export type DocExtraction = z.infer<typeof DocExtractionSchema>;
 export type DocMediaType = 'image/jpeg' | 'image/png' | 'application/pdf';
 
 export interface AiClient {
-  interpret(text: string): Promise<AiIntent | null>;
+  /**  lists the user's own item names (bills, goals, budgets) so edits can refer to them. */
+  interpret(text: string, context?: string): Promise<AiIntent | null>;
   phrase(situation: string, example: string): Promise<string | null>;
   /** Read a payment slip, receipt or statement. null on error/timeout/refusal. */
   extractDocument(bytes: Uint8Array, mediaType: DocMediaType): Promise<DocExtraction | null>;
@@ -79,6 +87,7 @@ Return:
 - kind "transaction" when the user reports money they spent or received. Set type, amount_text (copy the number exactly as typed, digits only plus optional comma/decimal; never calculate or convert), category_id (best match), note (a few words describing it), date_offset_days (0 today, negative for past days).
 - kind "query" when they ask about their money; set query.
 - kind "chitchat" for greetings or small talk; set reply: one short, warm, playful Thai sentence (like a friendly chicken buddy), no numbers, no financial advice.
+- kind "edit" when the user wants to change, pause, resume or delete one of THEIR existing items (a recurring bill, a budget, a savings goal, or a recent entry). Set edit_action (set_amount, set_day for a new due day of the month, set_reserve for a goal's monthly saving, pause, resume, delete), edit_scope, target_name (use the exact name from "Known items" when one fits, otherwise copy what they typed), new_amount_text / old_amount_text copied exactly as typed, day_of_month. If you are unsure which item they mean, still return your best target_name — the app will ask them.
 - kind "unknown" otherwise.
 If a message contains more than one amount, use kind "unknown". Set unused fields to null.
 Categories: ${CATEGORIES.map((c) => `${c.id}=${c.labelTh}`).join(', ')}.`;

@@ -106,6 +106,32 @@ export function fixedCostRepo(sql: Sql) {
       return rows.map(mapFc);
     },
 
+    /** New amount for the cost and for its unpaid bills due today or later (paid history unchanged). */
+    async updateAmount(userId: string, id: string, amountSatang: number, today: LocalDate): Promise<boolean> {
+      return sql.transaction(async (tx) => {
+        const rows = await tx.query('update fixed_costs set amount_satang = $3 where user_id = $1 and id = $2 and deleted_at is null returning 1', [userId, id, amountSatang]);
+        if (rows.length === 0) return false;
+        await tx.query(
+          `update fixed_cost_occurrences set amount_satang = $3 where user_id = $1 and fixed_cost_id = $2 and status = 'pending' and due_date >= $4`,
+          [userId, id, amountSatang, today],
+        );
+        return true;
+      });
+    },
+
+    /** Move the schedule anchor (e.g. new due day); future unpaid bills are dropped for regeneration. */
+    async reanchor(userId: string, id: string, anchorDate: LocalDate, today: LocalDate): Promise<boolean> {
+      return sql.transaction(async (tx) => {
+        const rows = await tx.query(
+          'update fixed_costs set anchor_date = $3, active_from = $4 where user_id = $1 and id = $2 and deleted_at is null returning 1',
+          [userId, id, anchorDate, today],
+        );
+        if (rows.length === 0) return false;
+        await tx.query(`delete from fixed_cost_occurrences where user_id = $1 and fixed_cost_id = $2 and status = 'pending' and due_date >= $3`, [userId, id, today]);
+        return true;
+      });
+    },
+
     async pause(userId: string, id: string): Promise<boolean> {
       const rows = await sql.query(
         `update fixed_costs set status = 'paused' where user_id = $1 and id = $2 and deleted_at is null and status = 'active' returning 1`,

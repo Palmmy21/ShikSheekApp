@@ -18,6 +18,7 @@ import { fixedCostOverviewMessage, upcomingBillsMessage } from '../flex/fixed-co
 import { categoryPickerMessage, confirmTransactionMessage, historyMessage, multiConfirmMessage, multiSavedMessage, transactionSavedMessage } from '../flex/transactions.ts';
 import { formatBaht, sumSatang } from '../../../domain/money.ts';
 import { pb } from '../flex/actions.ts';
+import { billChoice } from './edit-handler.ts';
 
 export async function showDashboard(ctx: HandlerContext): Promise<Message[]> {
   const v = await ctx.deps.finance.dashboard(ctx.userId, ctx.today);
@@ -89,7 +90,8 @@ export async function refineCategory(ctx: HandlerContext, draft: TransactionDraf
   if (learned && isKnownCategory(learned) && getCategory(learned).kind === draft.type) {
     return { ...draft, categoryId: learned, categoryConfident: true };
   }
-  if (!draft.categoryConfident && ctx.deps.ai) {
+  // chat text was already shown to the AI (with context) by the text handler; avoid a second call
+  if (!draft.categoryConfident && ctx.deps.ai && draft.source !== 'chat') {
     const intent = await ctx.deps.ai.interpret(draft.note).catch(() => null);
     const c = intent?.category_id;
     if (c && isKnownCategory(c) && getCategory(c).kind === draft.type) return { ...draft, categoryId: c, categoryConfident: true };
@@ -106,6 +108,9 @@ export function isConfident(d: TransactionDraft, today: string): boolean {
 export async function proposeTransaction(ctx: HandlerContext, input: TransactionDraft): Promise<Message[]> {
   try {
     const draft = await refineCategory(ctx, input);
+    // typed something that matches one of the user's bills? ask what they mean
+    const bill = await billChoice(ctx, draft);
+    if (bill) return bill;
     const user = await ctx.deps.repos.users.get(ctx.userId);
     if (user?.autoRecord && isConfident(draft, ctx.today)) {
       const r = await ctx.deps.txns.saveDirect(ctx.userId, draft, ctx.today);

@@ -116,7 +116,7 @@ describe('automatic categorisation', () => {
 
   it('asks the AI for a category only when unsure, and validates it', async () => {
     let calls = 0;
-    deps = makeDeps({ interpret: async () => ((calls++), { kind: 'transaction', type: 'expense', amount_text: '120', category_id: 'health', note: null, date_offset_days: 0, query: null, reply: null }), phrase: async () => null, extractDocument: async () => null });
+    deps = makeDeps({ interpret: async () => ((calls++), { kind: 'transaction', type: 'expense', amount_text: '120', category_id: 'health', note: null, date_offset_days: 0, query: null, reply: null, edit_action: null, edit_scope: null, target_name: null, new_amount_text: null, old_amount_text: null, day_of_month: null }), phrase: async () => null, extractDocument: async () => null });
     const msgs = await say('ฟหกด 120');
     expect(JSON.stringify(msgs)).toContain('สุขภาพ');
     await say('กินข้าว 65'); // confident by rules → AI not called

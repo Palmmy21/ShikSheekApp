@@ -38,6 +38,7 @@ import {
   showWeekSummary,
 } from './views.ts';
 import { exportUserData } from './privacy.ts';
+import { confirmEdit, pickEditTarget } from './edit-handler.ts';
 import { createImportService } from '../../../application/services/import-service.ts';
 
 export const FIXED_COST_DRAFT_KIND = 'fixed_cost';
@@ -296,6 +297,15 @@ export const postbackHandlers: Handlers = {
   auto_record_toggle: async (ctx, { on }) => {
     await ctx.deps.repos.users.setAutoRecord(ctx.userId, on === '1');
     return [autoRecordMessage(on === '1')];
+  },
+  edit_pick: async (ctx, { id, i }) => (await pickEditTarget(ctx, id, i)) ?? [staleActionMessage()],
+  edit_confirm: async (ctx, { id }) => (await confirmEdit(ctx, id)) ?? [staleActionMessage()],
+  fc_pay_amount: async (ctx, { id, amt }) => {
+    const r = await ctx.deps.fixedCosts.pay(ctx.userId, id, ctx.today, amt);
+    if (r.status === 'not_found') return [staleActionMessage()];
+    if (r.status === 'already_resolved') return say('บิลงวดนี้บันทึกไปแล้ว ไม่หักซ้ำแน่นอน 😉', 'smart');
+    await ctx.deps.repos.pending.cancelAllPending(ctx.userId, 'transaction');
+    return afterTransactionSaved(ctx, r.transaction);
   },
   draft_cancel: async (ctx, { id }) => {
     await ctx.deps.repos.pending.resolve(ctx.userId, id, 'cancelled');

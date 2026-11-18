@@ -7,9 +7,10 @@ import { parseMessage, type MessageParse } from '../../../application/parser/mes
 import type { TransactionDraft } from '../../../application/services/transaction-service.ts';
 import { addDays } from '../../../domain/dates.ts';
 import { periodForDate, previousPeriod } from '../../../domain/period.ts';
-import { getCategory } from '../../../domain/entities/categories.ts';
+import { getCategory, isKnownCategory } from '../../../domain/entities/categories.ts';
 import { autoRecordMessage, deletedMessage } from '../flex/transactions.ts';
-import { aiIntentToParseResult, isSafeChatLine } from '../../../application/personality/ai-assist.ts';
+import { handleEdit } from './edit-handler.ts';
+import { aiEditToIntent, aiIntentToParseResult, isSafeChatLine } from '../../../application/personality/ai-assist.ts';
 import { parseBareAmount, parseFixedCost, parseGoal } from '../../../application/parser/setup-parsers.ts';
 import { ValidationError } from '../../../application/services/transaction-service.ts';
 import { defaultCategoryFor } from '../../../domain/entities/categories.ts';
@@ -238,6 +239,8 @@ const toDraft = (p: TransactionProposal): TransactionDraft => ({
 async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise<Message[] | null> {
   const { deps, userId, today } = ctx;
   switch (m.kind) {
+    case 'edit':
+      return handleEdit(ctx, m);
     case 'multi':
       return proposeMulti(ctx, m.items.map(toDraft));
     case 'command':
@@ -287,10 +290,24 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
   return null;
 }
 
+/** The user's own item names, so the AI can tell which bill/goal/budget they are talking about. */
+async function knownItems(ctx: HandlerContext): Promise<string> {
+  const [costs, goals, budgets] = await Promise.all([
+    ctx.deps.repos.fixedCosts.list(ctx.userId),
+    ctx.deps.repos.goals.listActive(ctx.userId),
+    ctx.deps.repos.budgets.list(ctx.userId),
+  ]);
+  return [
+    ...costs.map((c) => `bill: ${c.name}`),
+    ...goals.map((g) => `goal: ${g.name}`),
+    ...budgets.map((b) => `budget: ${b.categoryId === 'total' ? 'งบรวม' : getCategory(b.categoryId).labelTh}`),
+  ].join('; ');
+}
+
 export async function handleText(ctx: HandlerContext, input: string): Promise<Message[]> {
   const trimmed = input.trim();
   const message = parseMessage(trimmed, ctx.today);
-  const parsed: ParseResult = message.kind === 'multi' || message.kind === 'command' || message.kind === 'extra_query' ? { kind: 'unknown' } : message;
+  const parsed: ParseResult = message.kind === 'multi' || message.kind === 'command' || message.kind === 'extra_query' || message.kind === 'edit' ? { kind: 'unknown' } : message;
   if (message !== parsed) {
     // flows that expect a bare amount must not swallow a command or multi-item message
     await ctx.deps.repos.conversation.clear(ctx.userId);
@@ -308,11 +325,27 @@ export async function handleText(ctx: HandlerContext, input: string): Promise<Me
     await ctx.deps.repos.conversation.clear(ctx.userId);
   }
 
+  // Rules produced an UNSURE expense from chat: ask the AI once, with the user's item names. It may
+  // recognise an edit ("ห้องขึ้นราคา…3500") or a better category. Same guards as everywhere.
+  if (parsed.kind === 'transaction' && !parsed.categoryConfident && ctx.deps.ai && trimmed.length <= 500) {
+    const intent = await ctx.deps.ai.interpret(trimmed, await knownItems(ctx)).catch(() => null);
+    if (intent) {
+      const edit = aiEditToIntent(intent, trimmed);
+      if (edit) return handleEdit(ctx, edit);
+      const c = intent.category_id;
+      if (intent.kind === 'transaction' && c && isKnownCategory(c) && getCategory(c).kind === parsed.type) {
+        return handleParsed(ctx, { ...parsed, categoryId: c, categoryConfident: true });
+      }
+    }
+  }
+
   // Optional AI fallback: only for text the rules couldn't read. Its output becomes the same kind of
   // proposal the rules produce (amount must literally appear in the text) and still needs confirmation.
   if (parsed.kind === 'unknown' && ctx.deps.ai && trimmed.length <= 500) {
-    const intent = await ctx.deps.ai.interpret(trimmed);
+    const intent = await ctx.deps.ai.interpret(trimmed, await knownItems(ctx));
     if (intent) {
+      const edit = aiEditToIntent(intent, trimmed);
+      if (edit) return handleEdit(ctx, edit);
       if (intent.kind === 'chitchat' && isSafeChatLine(intent.reply)) {
         return [mascotSays(intent.reply, 'happy', [pb('ภาพรวม', 'dashboard'), pb('วิธีใช้', 'help')])];
       }

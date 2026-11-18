@@ -3,7 +3,7 @@ import { aiIntentToParseResult, createAiPersonality, isSafeChatLine } from '../.
 import type { AiClient, AiIntent } from '../../src/infrastructure/ai/claude.ts';
 
 const TODAY = '2026-11-18';
-const base: AiIntent = { kind: 'transaction', type: 'expense', amount_text: '120', category_id: 'food', note: 'ข้าวผัด', date_offset_days: 0, query: null, reply: null };
+const base: AiIntent = { kind: 'transaction', type: 'expense', amount_text: '120', category_id: 'food', note: 'ข้าวผัด', date_offset_days: 0, query: null, reply: null, edit_action: null, edit_scope: null, target_name: null, new_amount_text: null, old_amount_text: null, day_of_month: null };
 
 describe('AI proposals are guarded', () => {
   it('accepts an amount that literally appears in the user text', () => {
