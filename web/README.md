@@ -13,7 +13,7 @@ npm run build      # static export → out/
 
 | Variable | Purpose |
 |---|---|
-| `NEXT_PUBLIC_LINE_ADD_URL` | Your OA add-friend link (LINE OA Manager → Gain friends → URL, e.g. `https://lin.ee/xxxx`). Without it, buttons scroll to the final CTA. |
+| `NEXT_PUBLIC_LINE_ADD_URL` | Optional override of the add-friend link (default: `https://line.me/R/ti/p/%40541ywsff`). |
 | `NEXT_PUBLIC_SITE_URL` | Public URL, used for social-share metadata. |
 
 ## Deploy

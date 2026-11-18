@@ -5,8 +5,8 @@ import {
 import { ChatDemo } from '@/components/ChatDemo';
 import { TintIcon } from '@/components/icons';
 
-/** Set NEXT_PUBLIC_LINE_ADD_URL to your OA's add-friend link (LINE OA Manager → Gain friends). */
-const LINE_URL = process.env.NEXT_PUBLIC_LINE_ADD_URL || '#start';
+/** Add-friend link of the ShikSheek OA (@541ywsff). Opens the LINE app on phones, a QR page on desktop. */
+const LINE_URL = process.env.NEXT_PUBLIC_LINE_ADD_URL || 'https://line.me/R/ti/p/%40541ywsff';
 
 const PHRASES = ['กินข้าว 65', 'เติมน้ำมัน 500', 'ได้เงินเดือน 25000', 'ซื้อกาแฟ 80 เมื่อวาน', 'วันนี้ใช้ไปเท่าไหร่', 'ค่าเน็ต 599 ทุกวันที่ 5', 'พรุ่งนี้มีค่าอะไรต้องจ่ายบ้าง', 'เดือนนี้เหลือเงินเท่าไหร่'];
 
