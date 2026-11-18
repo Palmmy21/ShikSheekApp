@@ -319,7 +319,22 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
     // ── plan ──
     if (is('GET', 'plan')) {
       const [s, u] = await Promise.all([deps.plans.status(userId), deps.plans.usage(userId, today)]);
-      return json(200, { plan: s.plan, label: s.limits.label, source: s.source, until: s.until, daysLeft: s.daysLeft, limits: s.limits, usage: u, prices: PRICES, pitch: PLAN_PITCH });
+      const payable = !!deps.payments;
+      const earlyBird = payable ? await deps.payments!.earlyBirdAvailable(userId) : true;
+      return json(200, { plan: s.plan, label: s.limits.label, source: s.source, until: s.until, daysLeft: s.daysLeft, limits: s.limits, usage: u, prices: PRICES, pitch: PLAN_PITCH, payable, earlyBird });
+    }
+    if (is('POST', 'plan', 'checkout')) {
+      if (!deps.payments) throw new HttpError(503, 'ยังไม่เปิดรับชำระเงิน');
+      const b = await body(req, z.object({ product: z.enum(['plus_monthly', 'plus_yearly', 'plus_early', 'pro_monthly', 'pro_yearly']) }));
+      if (b.product === 'plus_early' && !(await deps.payments.earlyBirdAvailable(userId))) throw new HttpError(409, 'ราคาผู้ใช้กลุ่มแรกเต็มแล้ว');
+      const { payment, url: payUrl } = await deps.payments.checkout(userId, b.product);
+      return json(201, { paymentId: payment.id, url: payUrl, amount: money(payment.amountSatang) });
+    }
+    if (is('GET', 'plan', 'payments', '*')) {
+      if (!deps.payments) throw new HttpError(503, 'ยังไม่เปิดรับชำระเงิน');
+      const r = await deps.payments.check(userId, seg[2]!);
+      if (r.status === 'not_found') throw new HttpError(404, 'not found');
+      return json(200, { status: r.status });
     }
     if (is('POST', 'plan', 'interest')) {
       const b = await body(req, z.object({ plan: z.enum(['plus', 'pro']) }));

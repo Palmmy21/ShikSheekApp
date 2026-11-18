@@ -3,7 +3,7 @@
  * when a limit is reached. No payment yet: "สนใจ" records interest for the launch.
  */
 import type { PlanLimitError, PlanStatus, PlanUsage } from '../../../application/services/entitlement-service.ts';
-import { PLAN_PITCH, PLANS, PRICES, upgradeTarget, type PaidPlan } from '../../../domain/plans.ts';
+import { PLAN_PITCH, PLANS, PRICES, PRODUCTS, upgradeTarget, type PaidPlan, type ProductId } from '../../../domain/plans.ts';
 import type { FlexBubble, FlexComponent, FlexMessage } from '../../../infrastructure/line/messages.ts';
 import { mascotUrl } from '../mascot.ts';
 import { pb } from './actions.ts';
@@ -16,15 +16,70 @@ function priceLine(p: PaidPlan): string {
   return `฿${PRICES[p].monthly}/เดือน · ฿${PRICES[p].yearly.toLocaleString('en-US')}/ปี`;
 }
 
-function planCard(p: PaidPlan, current: boolean): FlexBubble {
+/** How the plan cards can be acted on right now. */
+export interface CheckoutOptions {
+  /** PromptPay checkout configured (2C2P) */
+  payable: boolean;
+  /** early-bird Plus price still available to this user */
+  earlyBird: boolean;
+}
+
+function buyButtons(p: PaidPlan, o: CheckoutOptions): FlexComponent[] {
+  if (!o.payable) return [button(pb(`สนใจ ${PLANS[p].label}`, 'plan_interest', { p }), 'primary', { color: PLAN_COLOR[p] })];
+  const yearly: ProductId = p === 'plus' ? (o.earlyBird ? 'plus_early' : 'plus_yearly') : 'pro_yearly';
+  const monthly: ProductId = p === 'plus' ? 'plus_monthly' : 'pro_monthly';
+  return [
+    button(pb(`รายปี ฿${PRODUCTS[yearly].baht.toLocaleString('en-US')}`, 'pay_start', { p: yearly }), 'primary', { color: PLAN_COLOR[p], height: 'sm' }),
+    button(pb(`รายเดือน ฿${PRODUCTS[monthly].baht}`, 'pay_start', { p: monthly }), 'secondary', { height: 'sm' }),
+  ];
+}
+
+function planCard(p: PaidPlan, current: boolean, o: CheckoutOptions): FlexBubble {
   return bubble({
     size: 'kilo',
     header: header(`ชิกชิก ${PLANS[p].label}`, priceLine(p), mascotUrl(p === 'pro' ? 'proud' : 'celebrating'), { bg: p === 'pro' ? '#EEE9FF' : undefined }),
     body: [
       vbox(PLAN_PITCH[p].map((line) => hbox([txt('✓', { flex: 0, color: PLAN_COLOR[p], weight: 'bold', size: 'sm' }), txt(line, { size: 'sm', wrap: true, flex: 1 })], { spacing: 'sm' })), { spacing: 'sm' }),
-      ...(p === 'plus' ? [txt(`🐣 ผู้ใช้กลุ่มแรก: ฿${PRICES.plus.earlyBirdYearly}/ปี ล็อกราคาตลอด`, { size: 'xs', color: BRAND.muted, wrap: true })] : []),
+      ...(p === 'plus' && o.earlyBird ? [txt(`🐣 ผู้ใช้กลุ่มแรก: ฿${PRICES.plus.earlyBirdYearly}/ปี (ปกติ ฿${PRICES.plus.yearly})`, { size: 'xs', color: BRAND.muted, wrap: true })] : []),
+      ...(o.payable ? [txt('จ่ายด้วย PromptPay · ไม่ต่ออายุอัตโนมัติ', { size: 'xxs', color: BRAND.muted, wrap: true })] : []),
     ],
-    footer: [current ? button(pb('แพ็กเกจปัจจุบัน', 'plans'), 'secondary') : button(pb(`สนใจ ${PLANS[p].label}`, 'plan_interest', { p }), 'primary', { color: PLAN_COLOR[p] })],
+    footer: [...(current ? [txt('✓ แพ็กเกจปัจจุบัน · ซื้อเพิ่มเพื่อต่ออายุได้', { size: 'xs', color: BRAND.green, align: 'center', wrap: true })] : []), ...buyButtons(p, o)],
+  });
+}
+
+/** After tapping a buy button: open 2C2P's PromptPay page, then confirm. */
+export function checkoutMessage(paymentId: string, product: ProductId, url: string): FlexMessage {
+  const p = PRODUCTS[product];
+  return flex(`ชำระ ${p.label} ฿${p.baht}`, {
+    type: 'bubble',
+    size: 'kilo',
+    header: header('ชำระเงิน', `${p.label} · ฿${p.baht.toLocaleString('en-US')}`, mascotUrl('excited')),
+    body: vbox([
+      txt('1. แตะ "เปิดหน้าชำระเงิน" จะเห็น QR PromptPay', { size: 'sm', wrap: true }),
+      txt('2. สแกนจ่ายด้วยแอปธนาคาร (หรือบันทึกรูป QR แล้วเปิดในแอป)', { size: 'sm', wrap: true }),
+      txt('3. จ่ายเสร็จ ชิกชิกจะแจ้งในแชทอัตโนมัติ', { size: 'sm', wrap: true }),
+      txt(`ใช้ได้ ${p.days} วัน · ไม่ต่ออายุอัตโนมัติ · QR หมดอายุใน 20 นาที`, { size: 'xs', color: BRAND.muted, wrap: true }),
+    ], { spacing: 'sm' }),
+    footer: vbox([
+      button({ type: 'uri', label: 'เปิดหน้าชำระเงิน', uri: url }, 'primary', { color: PLAN_COLOR[p.plan] }),
+      button(pb('จ่ายแล้ว ตรวจสอบ', 'pay_check', { id: paymentId }), 'secondary', { height: 'sm' }),
+    ], { spacing: 'sm' }),
+  });
+}
+
+export function paidMessage(plan: PaidPlan, until: string | null): FlexMessage {
+  const date = until ? new Date(until).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' }) : null;
+  const msg = `ได้รับเงินแล้ว ขอบคุณมากน้า! 🎉 ตอนนี้เป็นชิกชิก ${PLANS[plan].label}${date ? ` ใช้ได้ถึง ${date}` : ''}`;
+  return flex(msg, {
+    type: 'bubble',
+    size: 'kilo',
+    body: vbox([
+      hbox([
+        { type: 'image', url: mascotUrl('celebrating'), size: '72px', flex: 0 } as FlexComponent,
+        vbox([txt(msg, { size: 'sm', wrap: true })], { backgroundColor: BRAND.white, cornerRadius: '14px', paddingAll: '12px', flex: 1, justifyContent: 'center' }),
+      ], { spacing: 'md', alignItems: 'center' }),
+      hbox([button(pb('แพ็กเกจของฉัน', 'plans'), 'secondary', { flex: 1, height: 'sm' }), button(pb('ภาพรวม', 'dashboard'), 'primary', { flex: 1, height: 'sm' })], { spacing: 'sm' }),
+    ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
   });
 }
 
@@ -38,7 +93,7 @@ function meter(label: string, used: number, limit: number | null): FlexComponent
   return vbox(items, { spacing: 'xs' });
 }
 
-export function planStatusMessage(s: PlanStatus, u: PlanUsage): FlexMessage {
+export function planStatusMessage(s: PlanStatus, u: PlanUsage, o: CheckoutOptions = { payable: false, earlyBird: true }): FlexMessage {
   const badge =
     s.source === 'trial'
       ? pill(`ทดลอง Pro ฟรี · เหลือ ${s.daysLeft} วัน`, '#EEE9FF', '#6B4FD8')
@@ -65,7 +120,7 @@ export function planStatusMessage(s: PlanStatus, u: PlanUsage): FlexMessage {
     ],
   });
   const paidNow = s.source === 'paid' ? s.plan : null;
-  return flex(`แพ็กเกจ ${s.limits.label}`, { type: 'carousel', contents: [status, planCard('plus', paidNow === 'plus'), planCard('pro', paidNow === 'pro')] });
+  return flex(`แพ็กเกจ ${s.limits.label}`, { type: 'carousel', contents: [status, planCard('plus', paidNow === 'plus', o), planCard('pro', paidNow === 'pro', o)] });
 }
 
 const REASON: Record<PlanLimitError['feature'], (limit: number | null, plan: string) => string> = {
@@ -76,7 +131,7 @@ const REASON: Record<PlanLimitError['feature'], (limit: number | null, plan: str
   history: (n) => `แพ็กเกจฟรีดูรายงานย้อนหลังได้ ${n} เดือน`,
 };
 
-export function planLimitMessage(err: PlanLimitError): FlexMessage {
+export function planLimitMessage(err: PlanLimitError, payable = false): FlexMessage {
   const target = upgradeTarget(err.plan);
   const reason = REASON[err.feature](err.limit, PLANS[err.plan].label === 'ฟรี' ? 'ฟรี' : ` ${PLANS[err.plan].label} `);
   return flex(reason, {
@@ -93,7 +148,32 @@ export function planLimitMessage(err: PlanLimitError): FlexMessage {
       ], { spacing: 'xs' }),
       hbox([
         button(pb('ดูแพ็กเกจ', 'plans'), 'secondary', { flex: 1, height: 'sm' }),
-        button(pb(`สนใจ ${PLANS[target].label}`, 'plan_interest', { p: target }), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[target] }),
+        payable
+          ? button(pb(`สมัคร ${PLANS[target].label}`, 'plans'), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[target] })
+          : button(pb(`สนใจ ${PLANS[target].label}`, 'plan_interest', { p: target }), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[target] }),
+      ], { spacing: 'sm' }),
+    ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
+  });
+}
+
+/** Renewal reminder (3 days before) or "your plan ended" notice. Data is never removed. */
+export function renewalMessage(plan: PaidPlan, end: string, ended: boolean): FlexMessage {
+  const date = new Date(end).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', timeZone: 'Asia/Bangkok' });
+  const label = PLANS[plan].label;
+  const msg = ended
+    ? `ชิกชิก ${label} หมดอายุแล้วน้า ตอนนี้กลับเป็นแพ็กเกจฟรี ข้อมูลทั้งหมดยังอยู่ครบ ต่ออายุได้ทุกเมื่อ`
+    : `ชิกชิก ${label} จะหมดอายุวันที่ ${date} (PromptPay ไม่ต่ออายุอัตโนมัติ) ต่ออายุตอนนี้ วันที่เหลือจะถูกบวกต่อให้ ไม่เสียเปล่า`;
+  return flex(msg, {
+    type: 'bubble',
+    size: 'kilo',
+    body: vbox([
+      hbox([
+        { type: 'image', url: mascotUrl(ended ? 'sleepy' : 'discipline'), size: '64px', flex: 0 } as FlexComponent,
+        vbox([txt(msg, { size: 'sm', wrap: true })], { backgroundColor: BRAND.white, cornerRadius: '14px', paddingAll: '12px', flex: 1, justifyContent: 'center' }),
+      ], { spacing: 'md', alignItems: 'center' }),
+      hbox([
+        button(pb(`ต่อรายเดือน ฿${PRICES[plan].monthly}`, 'pay_start', { p: plan === 'plus' ? 'plus_monthly' : 'pro_monthly' }), 'secondary', { flex: 1, height: 'sm' }),
+        button(pb(`ต่อรายปี ฿${PRICES[plan].yearly.toLocaleString('en-US')}`, 'pay_start', { p: plan === 'plus' ? 'plus_yearly' : 'pro_yearly' }), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[plan] }),
       ], { spacing: 'sm' }),
     ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
   });

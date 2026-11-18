@@ -47,3 +47,34 @@ export type LimitFeature = 'fixed_costs' | 'goals' | 'category_budget' | 'docs' 
 export function upgradeTarget(current: Plan): PaidPlan {
   return current === 'free' ? 'plus' : 'pro';
 }
+
+/** What can be bought. PromptPay is a one-off payment per period: no auto-renew, no stored cards. */
+export const PRODUCTS = {
+  plus_monthly: { plan: 'plus', days: 30, baht: PRICES.plus.monthly, label: 'Plus รายเดือน' },
+  plus_yearly: { plan: 'plus', days: 365, baht: PRICES.plus.yearly, label: 'Plus รายปี' },
+  plus_early: { plan: 'plus', days: 365, baht: PRICES.plus.earlyBirdYearly, label: 'Plus รายปี (ผู้ใช้กลุ่มแรก)' },
+  pro_monthly: { plan: 'pro', days: 30, baht: PRICES.pro.monthly, label: 'Pro รายเดือน' },
+  pro_yearly: { plan: 'pro', days: 365, baht: PRICES.pro.yearly, label: 'Pro รายปี' },
+} as const satisfies Record<string, { plan: PaidPlan; days: number; baht: number; label: string }>;
+export type ProductId = keyof typeof PRODUCTS;
+export const PRODUCT_IDS = Object.keys(PRODUCTS) as ProductId[];
+/** Early-bird price: first N purchases overall, once per user. */
+export const EARLY_BIRD_LIMIT = 1000;
+
+const DAY = 86_400_000;
+
+/**
+ * New subscription end after buying `productId`.
+ * - nothing active → now + days
+ * - same plan → extends from the current end
+ * - switching plan → unused time is converted at the monthly-price ratio (fair both ways), then + days
+ */
+export function applyPurchase(current: { plan: PaidPlan; end: number } | null, productId: ProductId, now: number): { plan: PaidPlan; end: number } {
+  const p = PRODUCTS[productId];
+  const add = p.days * DAY;
+  if (!current || current.end <= now) return { plan: p.plan, end: now + add };
+  if (current.plan === p.plan) return { plan: p.plan, end: current.end + add };
+  const remaining = current.end - now;
+  const converted = Math.floor((remaining * PRICES[current.plan].monthly) / PRICES[p.plan].monthly);
+  return { plan: p.plan, end: now + converted + add };
+}

@@ -241,5 +241,7 @@ export async function showTodayList(ctx: HandlerContext): Promise<Message[]> {
 /** "แพ็กเกจของฉัน": current plan, trial days left, this month's usage, Plus/Pro cards. */
 export async function showPlans(ctx: HandlerContext): Promise<Message[]> {
   const [s, u] = await Promise.all([ctx.deps.plans.status(ctx.userId, ctx.now), ctx.deps.plans.usage(ctx.userId, ctx.today)]);
-  return [planStatusMessage(s, u)];
+  const payable = !!ctx.deps.payments;
+  const earlyBird = payable ? await ctx.deps.payments!.earlyBirdAvailable(ctx.userId) : true;
+  return [planStatusMessage(s, u, { payable, earlyBird })];
 }

@@ -21,7 +21,7 @@ import { cycleSettingMessage, deleteDataConfirmMessage, settingsMessage } from '
 import { autoRecordMessage, multiConfirmMessage, multiSavedMessage, askAmountMessage, categoryPickerMessage, confirmDeleteMessage, confirmTransactionMessage, deletedMessage, historyMessage, startEntryMessage, transactionSavedMessage } from '../../src/presentation/line/flex/transactions.ts';
 import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
 import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
-import { planLimitMessage, planStatusMessage } from '../../src/presentation/line/flex/plans.ts';
+import { checkoutMessage, paidMessage, planLimitMessage, planStatusMessage, renewalMessage } from '../../src/presentation/line/flex/plans.ts';
 import { PlanLimitError } from '../../src/application/services/entitlement-service.ts';
 import { PLANS } from '../../src/domain/plans.ts';
 
@@ -118,6 +118,8 @@ export function buildSamples(): Record<string, Message[]> {
     plans_trial: [planStatusMessage({ plan: 'pro', limits: PLANS.pro, source: 'trial', until: '2026-12-02T00:00:00Z', daysLeft: 14 }, { docs: 3, ai: 40, fixedCosts: 7, goals: 2 })],
     plans_paid: [planStatusMessage({ plan: 'plus', limits: PLANS.plus, source: 'paid', until: '2026-12-31T00:00:00Z', daysLeft: 43 }, { docs: 120, ai: 0, fixedCosts: 12, goals: 5 })],
     plan_limits: [planLimitMessage(new PlanLimitError('fixed_costs', 'free', 3)), planLimitMessage(new PlanLimitError('category_budget', 'free', null)), planLimitMessage(new PlanLimitError('docs', 'free', 10)), planLimitMessage(new PlanLimitError('goals', 'plus', 5)), planLimitMessage(new PlanLimitError('history', 'free', 2))],
+    plans_payable: [planStatusMessage({ plan: 'free', limits: PLANS.free, source: 'free', until: null, daysLeft: null }, { docs: 2, ai: 5, fixedCosts: 1, goals: 1 }, { payable: true, earlyBird: true }), planStatusMessage({ plan: 'plus', limits: PLANS.plus, source: 'paid', until: '2026-12-31T00:00:00Z', daysLeft: 43 }, { docs: 2, ai: 5, fixedCosts: 1, goals: 1 }, { payable: true, earlyBird: false })],
+    payments: [checkoutMessage(UUID, 'plus_early', 'https://sandbox-pgw-ui.2c2p.com/payment/4.5/#/token/abc'), paidMessage('pro', '2027-11-18T03:00:00Z'), renewalMessage('plus', '2026-12-18T03:00:00Z', false), renewalMessage('pro', '2026-12-18T03:00:00Z', true), planLimitMessage(new PlanLimitError('fixed_costs', 'free', 3), true)],
     import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };
 }

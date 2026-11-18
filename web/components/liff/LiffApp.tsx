@@ -522,9 +522,32 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
   const [p, setP] = useState<PlanInfo | null>(null);
   const [open, setOpen] = useState<'plus' | 'pro' | null>(null);
   useEffect(() => {
-    api<PlanInfo>('/plan').then(setP).catch(() => {});
-  }, []);
+    let alive = true;
+    (async () => {
+      // Back from the 2C2P page? Confirm the payment once, then show the fresh plan.
+      let pending: string | null = null;
+      try { pending = sessionStorage.getItem('shiksheek:pay'); } catch {}
+      if (pending) {
+        try { sessionStorage.removeItem('shiksheek:pay'); } catch {}
+        const r = await api<{ status: string }>(`/plan/payments/${pending}`).catch(() => null);
+        if (r?.status === 'paid') toast('ได้รับเงินแล้ว ขอบคุณน้า! 🎉');
+        else if (r) toast('ยังไม่เห็นการชำระเงิน ถ้าเพิ่งจ่าย รอสักครู่ ชิกชิกจะแจ้งในแชท');
+      }
+      const plan = await api<PlanInfo>('/plan').catch(() => null);
+      if (alive && plan) setP(plan);
+    })();
+    return () => { alive = false; };
+  }, []); // once per mount; toast only calls a stable setState
   if (!p) return null;
+  async function buy(product: string) {
+    try {
+      const r = await api<{ paymentId: string; url: string }>('/plan/checkout', { method: 'POST', body: { product } });
+      try { sessionStorage.setItem('shiksheek:pay', r.paymentId); } catch {}
+      window.location.href = r.url; // 2C2P hosted PromptPay page
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'เปิดหน้าชำระเงินไม่ได้');
+    }
+  }
   async function interest(plan: 'plus' | 'pro') {
     try {
       await api('/plan/interest', { method: 'POST', body: { plan } });
@@ -559,8 +582,18 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
                     <li key={l}><Check size={14} aria-hidden="true" /> {l}</li>
                   ))}
                 </ul>
-                {t === 'plus' && <p className="muted small">ผู้ใช้กลุ่มแรก ฿{p.prices.plus.earlyBirdYearly}/ปี ล็อกราคาตลอด</p>}
-                <button className="btn btn--primary" onClick={() => interest(t)}>สนใจ {t === 'plus' ? 'Plus' : 'Pro'}</button>
+                {t === 'plus' && p.earlyBird !== false && <p className="muted small">ผู้ใช้กลุ่มแรก ฿{p.prices.plus.earlyBirdYearly}/ปี (ปกติ ฿{p.prices.plus.yearly})</p>}
+                {p.payable ? (
+                  <div className="tier__buy">
+                    <button className="btn btn--primary" onClick={() => buy(t === 'plus' ? (p.earlyBird !== false ? 'plus_early' : 'plus_yearly') : 'pro_yearly')}>
+                      รายปี ฿{(t === 'plus' && p.earlyBird !== false ? p.prices.plus.earlyBirdYearly : p.prices[t].yearly).toLocaleString('en-US')}
+                    </button>
+                    <button className="btn" onClick={() => buy(`${t}_monthly`)}>รายเดือน ฿{p.prices[t].monthly}</button>
+                    <p className="muted small">จ่ายด้วย PromptPay · ไม่ต่ออายุอัตโนมัติ · <a href="/terms">เงื่อนไข</a></p>
+                  </div>
+                ) : (
+                  <button className="btn btn--primary" onClick={() => interest(t)}>สนใจ {t === 'plus' ? 'Plus' : 'Pro'}</button>
+                )}
               </div>
             )}
           </div>

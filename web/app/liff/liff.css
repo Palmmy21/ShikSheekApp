@@ -569,3 +569,5 @@
 .tier__body li { display: flex; gap: 6px; align-items: flex-start; }
 .tier__body li svg { flex: none; margin-top: 3px; color: var(--green); }
 .tier--pro .btn--primary { background: #6b4fd8; }
+.tier__buy { display: grid; gap: 8px; }
+.tier__buy .muted a { color: inherit; }

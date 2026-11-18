@@ -106,6 +106,8 @@ export interface PlanInfo {
   usage: { docs: number; ai: number; fixedCosts: number; goals: number };
   prices: { plus: { monthly: number; yearly: number; earlyBirdYearly: number }; pro: { monthly: number; yearly: number } };
   pitch: { plus: string[]; pro: string[] };
+  payable?: boolean;
+  earlyBird?: boolean;
 }
 
 const PLAN_LIMIT_TEXT: Record<string, string> = {

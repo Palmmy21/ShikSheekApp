@@ -7,6 +7,8 @@ import { createRuleBasedPersonality, type PersonalityService } from './applicati
 import { createClaudeAi, type AiClient } from './infrastructure/ai/claude.ts';
 import { createOpenRouterAi } from './infrastructure/ai/openrouter.ts';
 import { createEntitlementService } from './application/services/entitlement-service.ts';
+import { createPaymentService } from './application/services/payment-service.ts';
+import { createTwoC2PGateway, type PaymentGateway } from './infrastructure/payments/twoc2p.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -22,13 +24,15 @@ export interface AppOverrides {
   line?: LineClient;
   personality?: PersonalityService;
   ai?: AiClient | null;
+  /** payment gateway (tests inject a fake) */
+  gateway?: PaymentGateway;
   clock?: () => Date;
   log?: Logger;
 }
 
 export function createAppDeps(
   sql: Sql,
-  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL'>>,
+  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY' | 'AI_PROVIDER' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL' | 'TWOC2P_MERCHANT_ID' | 'TWOC2P_SECRET_KEY' | 'TWOC2P_ENV' | 'TWOC2P_CHANNELS' | 'PAYMENT_RETURN_URL' | 'PAYMENT_NOTIFY_URL'>>,
   overrides: AppOverrides = {},
 ): AppDeps {
   configureAssetBaseUrl(config.PUBLIC_ASSET_BASE_URL);
@@ -37,6 +41,16 @@ export function createAppDeps(
   const repos = createRepos(sql);
   const ai = overrides.ai !== undefined ? overrides.ai ?? undefined : createAiFromConfig(config);
   const clock = overrides.clock ?? (() => new Date());
+  const gateway =
+    overrides.gateway ??
+    (config.TWOC2P_MERCHANT_ID && config.TWOC2P_SECRET_KEY && config.PAYMENT_NOTIFY_URL
+      ? createTwoC2PGateway({
+          merchantId: config.TWOC2P_MERCHANT_ID,
+          secretKey: config.TWOC2P_SECRET_KEY,
+          env: config.TWOC2P_ENV ?? 'sandbox',
+          channels: (config.TWOC2P_CHANNELS ?? 'QR').split(',').map((c) => c.trim()).filter(Boolean),
+        })
+      : undefined);
   const personality =
     overrides.personality ?? (ai && config.AI_PERSONALITY === 'true' ? createAiPersonality(ai) : createRuleBasedPersonality());
   return {
@@ -46,6 +60,7 @@ export function createAppDeps(
     fixedCosts: createFixedCostService(sql, repos),
     finance: createFinanceService(sql, repos),
     plans: createEntitlementService(repos, clock),
+    ...(gateway ? { payments: createPaymentService(repos, gateway, { returnUrl: config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid', notifyUrl: config.PAYMENT_NOTIFY_URL ?? 'https://invalid.example/payment-webhook' }, clock) } : {}),
     personality,
     ...(ai ? { ai } : {}),
     line: overrides.line ?? createLineClient(config.LINE_CHANNEL_ACCESS_TOKEN),

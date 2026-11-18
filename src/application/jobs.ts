@@ -18,8 +18,9 @@ import { upcomingBillsMessage } from '../presentation/line/flex/fixed-costs.ts';
 import { showDaySummary, showMonthSummary, showWeekSummary } from '../presentation/line/handlers/views.ts';
 import { GENERATION_HORIZON_DAYS } from './services/fixed-cost-service.ts';
 import { sha256Hex } from './services/privacy-service.ts';
+import { renewalMessage } from '../presentation/line/flex/plans.ts';
 
-export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'cleanup';
+export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'renewal_reminders' | 'cleanup';
 
 interface JobSpec {
   hour: number; // Bangkok
@@ -34,6 +35,7 @@ export const SCHEDULE: Record<JobName, JobSpec> = {
   monthly_summary: { hour: 9, windowHours: 4 },
   weekly_summary: { hour: 20, windowHours: 3, weekday: 7 },
   daily_summary: { hour: 21, windowHours: 3 },
+  renewal_reminders: { hour: 10, windowHours: 4 },
 };
 
 export function dueJobs(now: Date): JobName[] {
@@ -164,9 +166,26 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
     return report;
   },
 
+  /** PromptPay never auto-renews: remind 3 days before a paid plan ends, and once after it ended. */
+  async renewal_reminders(deps, now) {
+    const report: JobReport = { job: 'renewal_reminders', sent: 0, skipped: 0, failed: 0 };
+    const DAY = 86_400_000;
+    const soon = await deps.repos.payments.listEnding(now, new Date(now.getTime() + 3 * DAY));
+    for (const s of soon) {
+      await sendOnce(deps, 'renewal_reminders', `${s.end.slice(0, 10)}:soon`, s.userId, async () => [renewalMessage(s.plan, s.end, false)], report);
+    }
+    const ended = await deps.repos.payments.listEnding(new Date(now.getTime() - DAY), now);
+    for (const s of ended) {
+      if ((await deps.plans.planOf(s.userId, now)) !== 'free') continue; // still covered (e.g. renewed or trial)
+      await sendOnce(deps, 'renewal_reminders', `${s.end.slice(0, 10)}:ended`, s.userId, async () => [renewalMessage(s.plan, s.end, true)], report);
+    }
+    return report;
+  },
+
   async cleanup(deps) {
     const purged = await deps.repos.webhookEvents.purgeOlderThan(7);
     await deps.repos.pending.purgeResolvedOlderThan(30);
+    await deps.repos.payments.expireOlderThan(24);
     await deps.sql.query(`delete from data_export_tokens where expires_at < now() - interval '1 day'`);
     await deps.sql.query(`delete from job_runs where created_at < now() - interval '120 days'`);
     await deps.sql.query(`delete from conversation_states where expires_at < now()`);

@@ -266,7 +266,7 @@ export default function Home() {
       <footer className="footer">
         <div className="wrap footer__inner">
           <div className="nav__brand"><img src="/mascot/happy.png" alt="" width={28} height={28} /><Wordmark /></div>
-          <p>ให้เรื่องเงินเป็นเรื่องชิกชิก · © {new Date().getFullYear()} ShikSheek</p>
+          <p>ให้เรื่องเงินเป็นเรื่องชิกชิก · © {new Date().getFullYear()} ShikSheek · <a href="/terms">เงื่อนไขและการคืนเงิน</a></p>
         </div>
       </footer>
     </>

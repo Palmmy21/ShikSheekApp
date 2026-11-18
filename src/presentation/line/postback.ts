@@ -84,6 +84,8 @@ export const ACTION_PARAMS = {
   // plans
   plans: z.object({}),
   plan_interest: z.object({ p: z.enum(['plus', 'pro']) }),
+  pay_start: z.object({ p: z.enum(['plus_monthly', 'plus_yearly', 'plus_early', 'pro_monthly', 'pro_yearly']) }),
+  pay_check: z.object({ id: uuid }),
   cancel_flow: z.object({}),
   draft_cancel: z.object({ id: uuid }), // cancel any pending draft (fixed cost / goal)
 } as const;

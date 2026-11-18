@@ -40,6 +40,7 @@ import {
 import { exportUserData } from './privacy.ts';
 import { showPlans } from './views.ts';
 import { PLANS, PRICES } from '../../../domain/plans.ts';
+import { checkoutMessage, paidMessage } from '../flex/plans.ts';
 import { confirmEdit, pickEditTarget } from './edit-handler.ts';
 import { createImportService } from '../../../application/services/import-service.ts';
 
@@ -288,6 +289,25 @@ export const postbackHandlers: Handlers = {
 
   // ── plans ──
   plans: (ctx) => showPlans(ctx),
+  pay_start: async (ctx, { p }) => {
+    const payments = ctx.deps.payments;
+    if (!payments) return showPlans(ctx);
+    try {
+      const { payment, url } = await payments.checkout(ctx.userId, p);
+      return [checkoutMessage(payment.id, p, url)];
+    } catch (e) {
+      ctx.deps.log.error('checkout_failed', { error: e instanceof Error ? e.message : String(e) });
+      return [mascotSays('ตอนนี้เปิดหน้าชำระเงินไม่ได้ ลองใหม่อีกครั้งในอีกสักครู่นะ 🙏', 'worried', [pb('แพ็กเกจของฉัน', 'plans')])];
+    }
+  },
+  pay_check: async (ctx, { id }) => {
+    const payments = ctx.deps.payments;
+    if (!payments) return [staleActionMessage()];
+    const r = await payments.check(ctx.userId, id).catch(() => null);
+    if (!r || r.status === 'not_found') return [staleActionMessage()];
+    if (r.status === 'paid') return [paidMessage(r.payment.plan, r.until ?? (await ctx.deps.plans.status(ctx.userId)).until)];
+    return [mascotSays('ยังไม่เห็นการชำระเงินน้า ถ้าเพิ่งสแกนจ่าย รอสักครู่แล้วกดตรวจสอบอีกครั้ง (จ่ายเสร็จชิกชิกจะแจ้งเองด้วย)', 'thinking', [pb('ตรวจสอบอีกครั้ง', 'pay_check', { id }), pb('แพ็กเกจของฉัน', 'plans')])];
+  },
   plan_interest: async (ctx, { p }) => {
     const fresh = await ctx.deps.repos.plans.addInterest(ctx.userId, p);
     const early = p === 'plus' ? ` พร้อมราคาผู้ใช้กลุ่มแรก ฿${PRICES.plus.earlyBirdYearly}/ปี (ล็อกราคาตลอด)` : '';
