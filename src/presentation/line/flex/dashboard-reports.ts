@@ -8,6 +8,7 @@ import type { DashboardView, SummaryView } from '../../../application/services/f
 import type { FlexComponent, FlexMessage } from '../../../infrastructure/line/messages.ts';
 import { mascotUrl, moodForAvailable, type MascotExpression } from '../mascot.ts';
 import { pb } from './actions.ts';
+import { liffLink } from '../links.ts';
 import { budgetRow } from './budgets-goals.ts';
 import { flex } from './common.ts';
 import { billLine } from './fixed-costs.ts';
@@ -65,6 +66,7 @@ export function dashboardMessage(v: DashboardView, comment: string): FlexMessage
           button(pb('✍️ จดรายจ่าย', 'add_expense'), 'primary', { flex: 1 }),
           button(pb('📊 รายงาน', 'reports'), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
+        ...(liffLink() ? [button({ type: 'uri', label: '📱 เปิดแอปดูละเอียด', uri: liffLink()! }, 'link')] : []),
       ],
     }),
   );

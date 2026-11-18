@@ -89,6 +89,10 @@ export function userRepo(sql: Sql) {
       return rows[0]?.v ?? false;
     },
 
+    async setNotification(userId: string, key: keyof NotificationPrefs, value: boolean): Promise<void> {
+      await sql.query(`update users set ${PREF_COLUMNS[key]} = $2 where line_user_id = $1`, [userId, value]);
+    },
+
     /** Users eligible for a notification type (following + opted in). */
     async listNotifiable(key: keyof NotificationPrefs): Promise<UserProfile[]> {
       const rows = await sql.query<UserRow>(

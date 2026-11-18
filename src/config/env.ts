@@ -11,6 +11,12 @@ const schema = z.object({
   PUBLIC_ASSET_BASE_URL: z.string().url('PUBLIC_ASSET_BASE_URL is required (public URL of the assets bucket)'),
   DATA_EXPORT_URL: z.string().url().optional(),
   CRON_SECRET: z.string().min(24, 'CRON_SECRET must be at least 24 characters').optional(),
+  /** LINE Login channel that owns the LIFF app (ID token audience). */
+  LINE_LOGIN_CHANNEL_ID: z.string().regex(/^\d{6,12}$/).optional(),
+  /** Comma-separated origins allowed to call the API (the LIFF site). */
+  API_ALLOWED_ORIGINS: z.string().default('https://shiksheek.vercel.app'),
+  /** https://liff.line.me/<liff-id> — linked from bot cards. */
+  LIFF_URL: z.string().url().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('claude-opus-5-5'),
   /** 'true' = AI also writes the mascot's one-liners (adds latency to every reply). */

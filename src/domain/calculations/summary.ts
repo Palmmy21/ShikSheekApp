@@ -84,6 +84,21 @@ export function summarizeTransactions(txns: readonly Transaction[], range: DateR
   };
 }
 
+/** Expense per calendar day across the range (zero-filled), for charts. */
+export function dailyExpenseSeries(txns: readonly Transaction[], range: DateRange): Array<{ date: LocalDate; expenseSatang: Satang }> {
+  const byDay = new Map<string, Satang>();
+  for (const t of filterTransactions(txns, range, 'expense')) byDay.set(t.txnDate, (byDay.get(t.txnDate) ?? 0) + t.amountSatang);
+  const out: Array<{ date: LocalDate; expenseSatang: Satang }> = [];
+  for (let d = range.start; d <= range.end; d = nextDay(d)) out.push({ date: d, expenseSatang: byDay.get(d) ?? 0 });
+  return out;
+}
+
+function nextDay(d: LocalDate): LocalDate {
+  const t = new Date(`${d}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + 1);
+  return t.toISOString().slice(0, 10);
+}
+
 export function expenseByCategoryMap(txns: readonly Transaction[], range: DateRange): Map<string, Satang> {
   const map = new Map<string, Satang>();
   for (const t of filterTransactions(txns, range, 'expense')) {

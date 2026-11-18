@@ -118,6 +118,45 @@ export function transactionRepo(sql: Sql) {
       return rows[0] ? mapTransaction(rows[0]) : null;
     },
 
+    /** Edit a live transaction. Only provided fields change. */
+    async update(
+      userId: string,
+      id: string,
+      patch: Partial<Pick<Transaction, 'type' | 'amountSatang' | 'categoryId' | 'note' | 'txnDate'>>,
+    ): Promise<Transaction | null> {
+      const rows = await sql.query<TxnRow>(
+        `update transactions set
+           type = coalesce($3, type),
+           amount_satang = coalesce($4::bigint, amount_satang),
+           category_id = coalesce($5, category_id),
+           note = case when $6::boolean then $7 else note end,
+           txn_date = coalesce($8::date, txn_date)
+         where user_id = $1 and id = $2 and deleted_at is null
+         returning ${COLUMNS}`,
+        [userId, id, patch.type ?? null, patch.amountSatang ?? null, patch.categoryId ?? null, patch.note !== undefined, patch.note ?? null, patch.txnDate ?? null],
+      );
+      return rows[0] ? mapTransaction(rows[0]) : null;
+    },
+
+    /** Filtered, paginated list (newest first). `q` matches the note (case-insensitive). */
+    async search(
+      userId: string,
+      f: { limit: number; offset: number; type?: string | null; categoryId?: string | null; from?: string | null; to?: string | null; q?: string | null },
+    ): Promise<Transaction[]> {
+      const rows = await sql.query<TxnRow>(
+        `select ${COLUMNS} from transactions
+         where user_id = $1 and deleted_at is null
+           and ($2::text is null or type = $2)
+           and ($3::text is null or category_id = $3)
+           and ($4::date is null or txn_date >= $4)
+           and ($5::date is null or txn_date <= $5)
+           and ($6::text is null or note ilike '%' || $6 || '%')
+         order by txn_date desc, created_at desc limit $7 offset $8`,
+        [userId, f.type ?? null, f.categoryId ?? null, f.from ?? null, f.to ?? null, f.q ? f.q.replace(/[%_\\]/g, '') : null, f.limit, f.offset],
+      );
+      return rows.map(mapTransaction);
+    },
+
     async countLive(userId: string): Promise<number> {
       const rows = await sql.query<{ n: unknown }>(
         'select count(*) as n from transactions where user_id = $1 and deleted_at is null',

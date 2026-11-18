@@ -6,6 +6,7 @@ import type { FlexMessage, Message } from '../../../infrastructure/line/messages
 import { quickReply, text } from '../../../infrastructure/line/messages.ts';
 import { mascotUrl } from '../mascot.ts';
 import { pb } from './actions.ts';
+import { liffLink } from '../links.ts';
 import { flex } from './common.ts';
 import { BRAND, bubble, button, card, hbox, header, pill, txt, vbox } from './theme.ts';
 
@@ -41,6 +42,7 @@ export function settingsMessage(u: UserProfile): FlexMessage {
       ],
       footer: [
         hbox([button(pb('📦 ส่งออกข้อมูล', 'data_export'), 'secondary', { flex: 1 }), button(pb('🗑️ ลบข้อมูล', 'data_delete'), 'secondary', { flex: 1 })], { spacing: 'sm' }),
+        ...(liffLink() ? [button({ type: 'uri', label: '📱 ตั้งค่าในแอป', uri: liffLink()! }, 'link')] : []),
       ],
     }),
   );

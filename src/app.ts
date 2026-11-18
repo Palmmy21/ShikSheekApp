@@ -14,6 +14,7 @@ import { createLineClient, type LineClient } from './infrastructure/line/client.
 import { consoleLogger, type AppDeps, type Logger } from './presentation/line/context.ts';
 import { configureExportBaseUrl } from './presentation/line/handlers/privacy.ts';
 import { configureAssetBaseUrl } from './presentation/line/mascot.ts';
+import { configureLiffUrl } from './presentation/line/links.ts';
 
 export interface AppOverrides {
   line?: LineClient;
@@ -25,11 +26,12 @@ export interface AppOverrides {
 
 export function createAppDeps(
   sql: Sql,
-  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'AI_MODEL' | 'AI_PERSONALITY'>>,
+  config: Pick<AppConfig, 'LINE_CHANNEL_ACCESS_TOKEN' | 'PUBLIC_ASSET_BASE_URL' | 'DATA_EXPORT_URL'> & Partial<Pick<AppConfig, 'ANTHROPIC_API_KEY' | 'AI_MODEL' | 'AI_PERSONALITY' | 'LIFF_URL'>>,
   overrides: AppOverrides = {},
 ): AppDeps {
   configureAssetBaseUrl(config.PUBLIC_ASSET_BASE_URL);
   if (config.DATA_EXPORT_URL) configureExportBaseUrl(config.DATA_EXPORT_URL);
+  configureLiffUrl(config.LIFF_URL);
   const repos = createRepos(sql);
   const ai =
     overrides.ai !== undefined
