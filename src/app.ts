@@ -10,6 +10,7 @@ import { createEntitlementService } from './application/services/entitlement-ser
 import { createPaymentService } from './application/services/payment-service.ts';
 import type { PaymentGateway } from './infrastructure/payments/gateway.ts';
 import { createStripeGateway } from './infrastructure/payments/stripe.ts';
+import { createRichMenuSync } from './application/services/rich-menu-sync.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -54,19 +55,23 @@ export function createAppDeps(
       : undefined);
   const personality =
     overrides.personality ?? (ai && config.AI_PERSONALITY === 'true' ? createAiPersonality(ai) : createRuleBasedPersonality());
+  const line = overrides.line ?? createLineClient(config.LINE_CHANNEL_ACCESS_TOKEN);
+  const log = overrides.log ?? consoleLogger;
+  const plans = createEntitlementService(repos, clock);
   return {
     sql,
     repos,
     txns: createTransactionService(sql, repos),
     fixedCosts: createFixedCostService(sql, repos),
     finance: createFinanceService(sql, repos),
-    plans: createEntitlementService(repos, clock),
+    plans,
+    richMenus: createRichMenuSync(sql, line, plans, log),
     ...(gateway ? { payments: createPaymentService(repos, gateway, { returnUrl: config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid', cancelUrl: `${config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid'}?cancelled=1` }, clock, { allowedUsers: overrides.gateway || config.STRIPE_SECRET_KEY?.includes('_live_') ? null : new Set((config.PAYMENT_TEST_USERS ?? '').split(',').map((u) => u.trim()).filter(Boolean)) }) } : {}),
     personality,
     ...(ai ? { ai } : {}),
-    line: overrides.line ?? createLineClient(config.LINE_CHANNEL_ACCESS_TOKEN),
+    line,
     clock,
-    log: overrides.log ?? consoleLogger,
+    log,
   };
 }
 

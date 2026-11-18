@@ -19,6 +19,7 @@ export async function handlePaymentNotification(req: Request, deps: AppDeps): Pr
   try {
     const r = await deps.payments.handleNotification(raw, req.headers);
     if (r.status === 'paid' && r.newlyPaid) {
+      await deps.richMenus.sync(r.payment.userId);
       deps.log.info('payment_paid', { user: redactUserId(r.payment.userId), product: r.payment.product, amount: r.payment.amountSatang });
       await deps.line
         .push(r.payment.userId, [paidMessage(r.payment.plan, r.until)], await retryKeyFor('payment_paid', r.payment.invoiceNo))

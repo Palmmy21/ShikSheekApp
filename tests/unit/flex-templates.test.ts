@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildSamples } from '../../scripts/lib/flex-samples.ts';
 import { MASCOT_EXPRESSIONS, moodForAvailable, moodForBudget } from '../../src/presentation/line/mascot.ts';
-import { RICH_MENU_ACTIONS, decodePostback } from '../../src/presentation/line/postback.ts';
-import { RICH_MENU_SIZE, richMenuDefinition, TILES } from '../../src/presentation/line/rich-menu/definition.ts';
+import { decodePostback } from '../../src/presentation/line/postback.ts';
+import { RICH_MENU_SIZE, RICH_MENU_VARIANTS, richMenuDefinition, TILES } from '../../src/presentation/line/rich-menu/definition.ts';
 import { ALL_SITUATIONS, line } from '../../src/application/personality/rule-based.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -43,27 +43,28 @@ describe('mascot mood selection', () => {
 });
 
 describe('Rich Menu', () => {
-  const def = richMenuDefinition();
-  it('has exactly six areas covering the full 2500x1686 image without overlap', () => {
+  const LIFF = 'https://liff.line.me/2012666543-0a8D84ww';
+  it.each(RICH_MENU_VARIANTS)('%s: status bar + 8 tiles cover the full 2500x1686 image without overlap', (v) => {
+    const def = richMenuDefinition(v, LIFF);
     expect(def.size).toEqual(RICH_MENU_SIZE);
-    expect(def.areas).toHaveLength(6);
+    expect(def.areas).toHaveLength(1 + TILES.length);
+    expect(TILES).toHaveLength(8);
     const area = def.areas.reduce((s, a) => s + a.bounds.width * a.bounds.height, 0);
     expect(area).toBe(2500 * 1686);
     for (const a of def.areas) {
       expect(a.bounds.x + a.bounds.width).toBeLessThanOrEqual(2500);
       expect(a.bounds.y + a.bounds.height).toBeLessThanOrEqual(1686);
     }
-  });
-
-  it('every area is a working postback for one of the six Rich Menu actions', () => {
-    const actions = def.areas.map((a) => decodePostback(a.action.data)?.action);
-    expect(actions).toEqual([...RICH_MENU_ACTIONS]);
-    expect(TILES.map((t) => t.action)).toEqual([...RICH_MENU_ACTIONS]);
     expect(def.chatBarText.length).toBeLessThanOrEqual(14);
+    expect(existsSync(join(import.meta.dirname, `../../assets/rich-menu/rich-menu-${v}.jpg`))).toBe(true);
   });
 
-  it('the generated image exists', () => {
-    expect(existsSync(join(import.meta.dirname, '../../assets/rich-menu/rich-menu.jpg'))).toBe(true);
+  it('the bar opens plans; dashboard/history/settings open LIFF directly; the rest are valid postbacks', () => {
+    const def = richMenuDefinition('free', LIFF);
+    const [bar, ...tiles] = def.areas as Array<{ action: { type: string; data?: string; uri?: string } }>;
+    expect(decodePostback(bar!.action.data!)?.action).toBe('plans');
+    expect(tiles.filter((t) => t.action.type === 'uri').map((t) => t.action.uri)).toEqual([`${LIFF}?tab=home`, `${LIFF}?tab=txns`, `${LIFF}?tab=settings`]);
+    for (const t of tiles.filter((t) => t.action.type === 'postback')) expect(decodePostback(t.action.data!)).not.toBeNull();
   });
 });
 

@@ -305,6 +305,7 @@ export const postbackHandlers: Handlers = {
     if (!payments) return [staleActionMessage()];
     const r = await payments.check(ctx.userId, id).catch(() => null);
     if (!r || r.status === 'not_found') return [staleActionMessage()];
+    if (r.status === 'paid') await ctx.deps.richMenus.sync(ctx.userId);
     if (r.status === 'paid') return [paidMessage(r.payment.plan, r.until ?? (await ctx.deps.plans.status(ctx.userId)).until)];
     return [mascotSays('ยังไม่เห็นการชำระเงินน้า ถ้าเพิ่งสแกนจ่าย รอสักครู่แล้วกดตรวจสอบอีกครั้ง (จ่ายเสร็จชิกชิกจะแจ้งเองด้วย)', 'thinking', [pb('ตรวจสอบอีกครั้ง', 'pay_check', { id }), pb('แพ็กเกจของฉัน', 'plans')])];
   },

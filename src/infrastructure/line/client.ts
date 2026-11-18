@@ -19,6 +19,10 @@ export interface LineClient {
   showLoading(userId: string, seconds?: number): Promise<void>;
   /** Download a user-sent image/file. null if unavailable or larger than maxBytes. */
   getContent(messageId: string, maxBytes: number): Promise<{ bytes: Uint8Array; contentType: string } | null>;
+  /** Link a rich menu to one user (overrides the channel default). */
+  linkRichMenu(userId: string, richMenuId: string): Promise<void>;
+  /** Rich menu id behind an alias, or null if the alias does not exist. */
+  getRichMenuIdByAlias(aliasId: string): Promise<string | null>;
 }
 
 export class LineApiError extends Error {
@@ -93,6 +97,17 @@ export function createLineClient(channelAccessToken: string, fetchImpl: typeof f
         return { bytes, contentType: (res.headers.get('content-type') ?? '').split(';')[0]!.trim() };
       }
       return null;
+    },
+    async linkRichMenu(userId, richMenuId) {
+      const path = `/v2/bot/user/${encodeURIComponent(userId)}/richmenu/${encodeURIComponent(richMenuId)}`;
+      const res = await fetchImpl(`${API}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${channelAccessToken}` } });
+      if (!res.ok) throw new LineApiError(res.status, await res.text(), path);
+    },
+    async getRichMenuIdByAlias(aliasId) {
+      const res = await fetchImpl(`${API}/v2/bot/richmenu/alias/${encodeURIComponent(aliasId)}`, { headers: { Authorization: `Bearer ${channelAccessToken}` } });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new LineApiError(res.status, await res.text(), '/v2/bot/richmenu/alias');
+      return ((await res.json()) as { richMenuId?: string }).richMenuId ?? null;
     },
     async showLoading(userId, seconds = 5) {
       try {

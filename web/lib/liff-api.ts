@@ -94,6 +94,7 @@ export interface Me {
   autoRecord: boolean;
   notifications: Record<'dailySummary' | 'weeklySummary' | 'monthlySummary' | 'billReminders' | 'budgetAlerts', boolean>;
   today: string;
+  plan?: { id: 'free' | 'plus' | 'pro'; label: string; source: 'free' | 'trial' | 'paid'; daysLeft: number | null };
 }
 
 export interface PlanInfo {

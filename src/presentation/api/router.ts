@@ -152,8 +152,8 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
 
     // ── profile & meta ──
     if (is('GET', 'me')) {
-      const u = (await deps.repos.users.get(userId))!;
-      return json(200, { displayName: u.displayName, cycleStartDay: u.cycleStartDay, notifications: u.notifications, autoRecord: u.autoRecord, today });
+      const [u, s] = await Promise.all([deps.repos.users.get(userId), deps.plans.status(userId)]);
+      return json(200, { displayName: u!.displayName, cycleStartDay: u!.cycleStartDay, notifications: u!.notifications, autoRecord: u!.autoRecord, today, plan: { id: s.plan, label: s.limits.label, source: s.source, daysLeft: s.daysLeft } });
     }
     if (is('GET', 'categories')) return json(200, CATEGORIES.map((c) => ({ id: c.id, kind: c.kind, label: c.labelTh, emoji: c.emoji })));
 

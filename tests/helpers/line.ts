@@ -23,6 +23,17 @@ export class FakeLineClient implements LineClient {
     return c && c.bytes.byteLength <= maxBytes ? c : null;
   }
 
+  richMenuLinks = new Map<string, string>();
+  aliases = new Map<string, string>([['shiksheek-free', 'rm-free'], ['shiksheek-trial', 'rm-trial'], ['shiksheek-plus', 'rm-plus'], ['shiksheek-pro', 'rm-pro']]);
+  linkCalls = 0;
+  async linkRichMenu(userId: string, richMenuId: string) {
+    this.linkCalls++;
+    this.richMenuLinks.set(userId, richMenuId);
+  }
+  async getRichMenuIdByAlias(aliasId: string) {
+    return this.aliases.get(aliasId) ?? null;
+  }
+
   lastReply(): Message[] {
     return this.replies.at(-1)?.messages ?? [];
   }

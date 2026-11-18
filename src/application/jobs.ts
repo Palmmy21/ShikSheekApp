@@ -20,7 +20,7 @@ import { GENERATION_HORIZON_DAYS } from './services/fixed-cost-service.ts';
 import { sha256Hex } from './services/privacy-service.ts';
 import { renewalMessage } from '../presentation/line/flex/plans.ts';
 
-export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'renewal_reminders' | 'cleanup';
+export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'renewal_reminders' | 'rich_menu_sync' | 'cleanup';
 
 interface JobSpec {
   hour: number; // Bangkok
@@ -36,6 +36,7 @@ export const SCHEDULE: Record<JobName, JobSpec> = {
   weekly_summary: { hour: 20, windowHours: 3, weekday: 7 },
   daily_summary: { hour: 21, windowHours: 3 },
   renewal_reminders: { hour: 10, windowHours: 4 },
+  rich_menu_sync: { hour: 0, windowHours: 24 }, // every run: trials/plans can end at any hour
 };
 
 export function dueJobs(now: Date): JobName[] {
@@ -180,6 +181,13 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
       await sendOnce(deps, 'renewal_reminders', `${s.end.slice(0, 10)}:ended`, s.userId, async () => [renewalMessage(s.plan, s.end, true)], report);
     }
     return report;
+  },
+
+  /** Re-link plan-variant rich menus whose plan changed (trial ended, plan expired…). */
+  async rich_menu_sync(deps, now) {
+    let changed = 0;
+    for (const u of await deps.repos.users.listAllFollowing()) if (await deps.richMenus.sync(u.userId, now)) changed++;
+    return { job: 'rich_menu_sync', sent: 0, skipped: 0, failed: 0, detail: `relinked ${changed}` };
   },
 
   async cleanup(deps) {

@@ -48,6 +48,7 @@ async function buildReplyInner(event: LineEvent, deps: AppDeps): Promise<Message
   if (event.type === 'follow') {
     const profile = await deps.line.getProfile(userId).catch(() => null);
     const { user, created } = await deps.repos.users.ensure(userId, profile?.displayName ?? null);
+    await deps.richMenus.sync(userId, now, true); // plan-variant menu (new users: Pro trial)
     if (!created) {
       await deps.repos.users.setFollowing(userId, true);
       if (profile?.displayName) await deps.repos.users.setDisplayName(userId, profile.displayName);

@@ -1,5 +1,6 @@
 import type { EntitlementService } from '../../application/services/entitlement-service.ts';
 import type { PaymentService } from '../../application/services/payment-service.ts';
+import type { RichMenuSync } from '../../application/services/rich-menu-sync.ts';
 import type { FinanceService } from '../../application/services/finance-service.ts';
 import type { FixedCostService } from '../../application/services/fixed-cost-service.ts';
 import type { TransactionService } from '../../application/services/transaction-service.ts';
@@ -27,6 +28,8 @@ export interface AppDeps {
   plans: EntitlementService;
   /** PromptPay checkout via Stripe; absent until merchant credentials are configured. */
   payments?: PaymentService;
+  /** per-user plan-variant rich menu */
+  richMenus: RichMenuSync;
   personality: PersonalityService;
   /** Optional Claude layer for messages the rule-based parser cannot understand. */
   ai?: AiClient;

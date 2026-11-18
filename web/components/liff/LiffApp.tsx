@@ -13,6 +13,17 @@ import { CategoryBars, DailyBars, Progress } from './Charts';
 import { Sheet, TxnSheet, type TxnInput } from './TxnSheet';
 
 type Tab = 'home' | 'txns' | 'bills' | 'plans' | 'settings';
+const TAB_IDS: readonly Tab[] = ['home', 'txns', 'bills', 'plans', 'settings'];
+
+/** ?tab=… from a Rich Menu link (LIFF forwards it via liff.state, then it appears in the URL). */
+function tabFromUrl(): Tab | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search);
+  let t = q.get('tab');
+  const state = q.get('liff.state');
+  if (!t && state) t = new URLSearchParams(state.replace(/^[^?]*\?/, '')).get('tab');
+  return t && (TAB_IDS as readonly string[]).includes(t) ? (t as Tab) : null;
+}
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'home', label: 'ภาพรวม', icon: House },
   { id: 'txns', label: 'รายการ', icon: ReceiptText },
@@ -36,7 +47,7 @@ export default function LiffApp() {
   const [fatal, setFatal] = useState<string | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tab, setTab] = useState<Tab>('home');
+  const [tab, setTab] = useState<Tab>(() => tabFromUrl() ?? 'home');
   const [version, setVersion] = useState(0);
   const [sheet, setSheet] = useState<{ open: boolean; editing: Txn | null }>({ open: false, editing: null });
   const toast = useToast();
@@ -46,6 +57,8 @@ export default function LiffApp() {
     (async () => {
       try {
         await initLiff();
+        const fromUrl = tabFromUrl();
+        if (fromUrl) setTab(fromUrl);
         const [m, c] = await Promise.all([api<Me>('/me'), api<Category[]>('/categories')]);
         setMe(m);
         setCategories(c);
@@ -99,6 +112,11 @@ export default function LiffApp() {
           <strong>{current.label}</strong>
           <small>สวัสดี {me.displayName ?? 'จ้า'}</small>
         </div>
+        {me.plan && (
+          <button className={`plan-pill plan-pill--${me.plan.id}`} onClick={() => setTab('settings')} aria-label="ดูแพ็กเกจ">
+            {me.plan.source === 'trial' ? `ทดลอง Pro · ${me.plan.daysLeft} วัน` : me.plan.id === 'free' ? 'ฟรี · อัปเกรด' : me.plan.label}
+          </button>
+        )}
         {DEMO && <span className="demo-badge">ตัวอย่าง</span>}
       </header>
 

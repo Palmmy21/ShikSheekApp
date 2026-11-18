@@ -9,7 +9,7 @@ import type { AppDeps, Logger } from '../../src/presentation/line/context.ts';
 import { handleApiRequest } from '../../src/presentation/api/router.ts';
 import { createTestDb, testUserId, type TestDb } from '../helpers/db.ts';
 import { validateMessages } from '../helpers/flex-validator.ts';
-import { CHANNEL_SECRET, FakeLineClient, postbackEvent, signedBody, textEvent } from '../helpers/line.ts';
+import { CHANNEL_SECRET, FakeLineClient, followEvent, postbackEvent, signedBody, textEvent } from '../helpers/line.ts';
 
 let db: TestDb;
 let line: FakeLineClient;
@@ -181,5 +181,32 @@ describe('LIFF API', () => {
     expect(g).toMatchObject({ status: 402, data: { error: 'plan_limit', feature: 'goals', limit: 1 } });
     expect((await call('GET', '/reports/month?k=2026-11')).status).toBe(200);
     expect((await call('GET', '/reports/month?k=2026-08')).data).toMatchObject({ error: 'plan_limit', feature: 'history' });
+  });
+});
+
+describe('plan-variant rich menu', () => {
+  const V = testUserId(0x7e5);
+  it('follow links the trial menu; trial end, grants and the hourly job re-link only when the plan changes', async () => {
+    await send(followEvent(V));
+    expect(line.richMenuLinks.get(V)).toBe('rm-trial');
+    await runScheduledJobs(deps, NOW, ['rich_menu_sync']); // first pass links users never synced before
+    const calls = line.linkCalls;
+    await runScheduledJobs(deps, NOW, ['rich_menu_sync']);
+    expect(line.linkCalls).toBe(calls); // nothing changed → no LINE call
+
+    await db.sql.query(`update users set created_at = '2026-09-01T00:00:00Z' where line_user_id = $1`, [V]);
+    await runScheduledJobs(deps, NOW, ['rich_menu_sync']);
+    expect(line.richMenuLinks.get(V)).toBe('rm-free');
+
+    await deps.repos.plans.setSubscription(V, 'pro', 'payment', new Date('2026-12-31T00:00:00Z'));
+    await send(textEvent(V, 'แพ็กเกจ')); // viewing plans syncs too
+    expect(line.richMenuLinks.get(V)).toBe('rm-pro');
+  });
+
+  it('missing aliases (menus not set up yet) never break replies', async () => {
+    line.aliases.clear();
+    const msgs = await send(followEvent(V));
+    expect(msgs.length).toBeGreaterThan(0);
+    expect(line.richMenuLinks.has(V)).toBe(false);
   });
 });
