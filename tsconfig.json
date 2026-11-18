@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
@@ -15,7 +18,15 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "erasableSyntaxOnly": true
   },
-  "include": ["src", "tests", "scripts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "vitest.config.ts"
+  ]
 }

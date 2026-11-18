@@ -20,12 +20,14 @@ export interface LineClient {
 }
 
 export class LineApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly body: string,
-    readonly endpoint: string,
-  ) {
+  readonly status: number;
+  readonly body: string;
+  readonly endpoint: string;
+  constructor(status: number, body: string, endpoint: string) {
     super(`LINE API ${endpoint} failed with ${status}`);
+    this.status = status;
+    this.body = body;
+    this.endpoint = endpoint;
     this.name = 'LineApiError';
   }
 }

@@ -29,11 +29,11 @@ export interface TransactionDraft {
 }
 
 export class ValidationError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
+  // explicit field (no parameter property) so Node's type-stripping can run this file directly
+  readonly code: string;
+  constructor(code: string, message: string) {
     super(message);
+    this.code = code;
     this.name = 'ValidationError';
   }
 }
