@@ -44,7 +44,7 @@ export function inviteMessage(info: { code: string; invited: number; rewarded: n
       ], { spacing: 'sm' }),
     ],
     footer: [
-      button({ type: 'uri', label: '📤 แชร์ให้เพื่อนใน LINE', uri: share }, 'primary'),
+      button({ type: 'uri', label: 'แชร์ให้เพื่อนใน LINE', uri: share }, 'primary'),
       button(pb('แพ็กเกจของฉัน', 'plans'), 'link'),
     ],
   }));

@@ -76,3 +76,21 @@ describe('personality', () => {
     }
   });
 });
+
+describe('visual guards', () => {
+  it('no button label is wider than its button (calibrated with the LINE Flex Simulator)', async () => {
+    const { checkAll } = await import('../../scripts/check-flex-overflow.ts');
+    expect(checkAll()).toEqual([]);
+  });
+
+  it('no message contains half an emoji (lone surrogate) and no button label is clipped', () => {
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+    for (const [name, msgs] of Object.entries(buildSamples())) {
+      const json = JSON.stringify(msgs);
+      expect(lone.test(json), `${name} has a broken emoji`).toBe(false);
+      for (const m of json.matchAll(/"type":"button","action":\{[^}]*"label":"([^"]*)"/g)) {
+        expect(Array.from(m[1]!).length, `${name}: ${m[1]}`).toBeLessThanOrEqual(40);
+      }
+    }
+  });
+});

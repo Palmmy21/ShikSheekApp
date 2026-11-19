@@ -15,7 +15,7 @@ import { BRAND, bubble, button, card, hbox, header, progressBar, txt, vbox } fro
 const pct = (bp: number | null) => (bp === null ? '–' : `${Math.round(bp / 100)}%`);
 
 function stepRow(n: number, title: string, detail: string, state: 'done' | 'now' | 'later', extra: FlexComponent[] = []): FlexComponent {
-  const icon = state === 'done' ? '✅' : state === 'now' ? '👉' : '⬜';
+  const icon = state === 'done' ? '✅' : state === 'now' ? '👉' : '⚪';
   return vbox(
     [
       hbox([txt(icon, { flex: 0, size: 'sm' }), txt(`${n}. ${title}`, { weight: 'bold', size: 'sm', flex: 1, wrap: true, color: state === 'later' ? BRAND.muted : BRAND.brown })], { spacing: 'sm' }),
@@ -70,8 +70,8 @@ export function wealthPlanMessage(p: WealthPlan): FlexMessage {
   ];
   const primary =
     p.emergency || p.goals.length
-      ? button(pb('🐷 เก็บเงินตอนนี้', 'goal_contribute', { id: (p.emergency && !p.emergency.isReached ? p.emergency : (openGoals[0] ?? p.emergency ?? p.goals[0])!).goal.id }), 'primary')
-      : button(pb('🛟 เริ่มเงินสำรองฉุกเฉิน', 'wealth_emergency'), 'primary');
+      ? button(pb('เก็บเงินตอนนี้', 'goal_contribute', { id: (p.emergency && !p.emergency.isReached ? p.emergency : (openGoals[0] ?? p.emergency ?? p.goals[0])!).goal.id }), 'primary')
+      : button(pb('เริ่มเงินสำรองฉุกเฉิน', 'wealth_emergency'), 'primary');
   return flex(`แผนการเงิน: เก็บได้ ${pct(p.savingsRateBp)} ของรายรับ`, bubble({
     header: header('แผนการเงิน', 'มีเงินเหลือเก็บ แล้วต่อยอด', mascotUrl(p.step >= 3 ? 'proud' : 'planning')),
     body,
@@ -94,9 +94,9 @@ export function saveFirstMessage(income: Transaction): FlexMessage {
           ],
           { spacing: 'md', alignItems: 'center' },
         ),
-        hbox(
+        vbox(
           SAVE_FIRST_PERCENTS.map((n) =>
-            button(pb(`${n}% ${formatBaht(percentOf(income.amountSatang, n))}`, 'save_first', { id: income.id, p: String(n) as '10' | '20' | '30' }), n === 20 ? 'primary' : 'secondary', { flex: 1, height: 'sm' }),
+            button(pb(`เก็บ ${n}% · ${formatBaht(percentOf(income.amountSatang, n))}`, 'save_first', { id: income.id, p: String(n) as '10' | '20' | '30' }), n === 20 ? 'primary' : 'secondary', { height: 'sm' }),
           ),
           { spacing: 'sm' },
         ),
@@ -122,10 +122,10 @@ export function sweepMessage(periodKey: string, leftover: Satang): FlexMessage {
           ],
           { spacing: 'md', alignItems: 'center' },
         ),
-        hbox(
+        vbox(
           [
-            button(pb(`ครึ่งหนึ่ง ${formatBaht(percentOf(leftover, 50))}`, 'sweep', { k: periodKey, f: 'half' }), 'secondary', { flex: 1, height: 'sm' }),
-            button(pb(`ทั้งหมด ${formatBaht(leftover)}`, 'sweep', { k: periodKey, f: 'all' }), 'primary', { flex: 1, height: 'sm' }),
+            button(pb(`เก็บทั้งหมด ${formatBaht(leftover)}`, 'sweep', { k: periodKey, f: 'all' }), 'primary', { height: 'sm' }),
+            button(pb(`เก็บครึ่งหนึ่ง ${formatBaht(percentOf(leftover, 50))}`, 'sweep', { k: periodKey, f: 'half' }), 'secondary', { height: 'sm' }),
           ],
           { spacing: 'sm' },
         ),

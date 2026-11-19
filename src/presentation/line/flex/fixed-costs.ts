@@ -85,7 +85,7 @@ export function fixedCostOverviewMessage(items: FixedCostSummary[]): FlexMessage
       footer: [
         hbox([
           button(pb('➕ เพิ่ม', 'fc_add', {}, { inputOption: 'openKeyboard' }), 'primary', { flex: 1 }),
-          button(pb('📅 บิลใกล้ถึง', 'fc_bills'), 'secondary', { flex: 1 }),
+          button(pb('บิลใกล้ถึง', 'fc_bills'), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
       ],
     }),
@@ -106,8 +106,8 @@ export function fixedCostDetailMessage(fc: FixedCost, recent: FixedCostOccurrenc
   footer.push(
     hbox([
       fc.status === 'active'
-        ? button(pb('⏸ หยุดชั่วคราว', 'fc_pause', { id: fc.id }, { displayText: 'หยุดชั่วคราว' }), 'secondary', { flex: 1 })
-        : button(pb('▶️ เริ่มใหม่', 'fc_resume', { id: fc.id }, { displayText: 'เริ่มใหม่' }), 'secondary', { flex: 1 }),
+        ? button(pb('หยุดชั่วคราว', 'fc_pause', { id: fc.id }, { displayText: 'หยุดชั่วคราว' }), 'secondary', { flex: 1 })
+        : button(pb('เริ่มใหม่', 'fc_resume', { id: fc.id }, { displayText: 'เริ่มใหม่' }), 'secondary', { flex: 1 }),
       button(pb('🗑️ ลบ', 'fc_delete', { id: fc.id }), 'secondary', { flex: 1 }),
     ], { spacing: 'sm' }),
   );

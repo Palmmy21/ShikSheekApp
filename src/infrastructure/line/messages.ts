@@ -105,5 +105,11 @@ export function text(t: string, quickReply?: QuickReply): TextMessage {
 }
 
 export function quickReply(actions: Action[]): QuickReply {
-  return { items: actions.slice(0, MAX_QUICK_REPLY_ITEMS).map((action) => ({ type: 'action', action })) };
+  // quick-reply labels max 20 chars (by code point, so emoji are never split)
+  return {
+    items: actions.slice(0, MAX_QUICK_REPLY_ITEMS).map((action) => ({
+      type: 'action',
+      action: 'label' in action && typeof action.label === 'string' && Array.from(action.label).length > 20 ? { ...action, label: Array.from(action.label).slice(0, 20).join('').trimEnd() } : action,
+    })),
+  };
 }

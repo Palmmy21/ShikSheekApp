@@ -47,7 +47,7 @@ export const TILES: readonly RichMenuTile[] = [
 
 /** Status bar copy per variant. */
 export const BAR: Record<RichMenuVariant, { kicker: string; plan: string; cta: string; mascot: MascotExpression; tone: 'cream' | 'violet' | 'red' }> = {
-  free: { kicker: 'แพ็กเกจของคุณ', plan: 'ฟรี', cta: 'อัปเกรด ✨', mascot: 'excited', tone: 'cream' },
+  free: { kicker: 'แพ็กเกจของคุณ', plan: 'ฟรี', cta: 'อัปเกรด', mascot: 'excited', tone: 'cream' },
   trial: { kicker: 'กำลังทดลองใช้', plan: 'Pro ฟรี 14 วัน', cta: 'สมัครเลย', mascot: 'celebrating', tone: 'violet' },
   plus: { kicker: 'แพ็กเกจของคุณ', plan: 'ชิกชิก Plus', cta: 'แพ็กเกจของฉัน', mascot: 'proud', tone: 'red' },
   pro: { kicker: 'แพ็กเกจของคุณ', plan: 'ชิกชิก Pro', cta: 'แพ็กเกจของฉัน', mascot: 'proud', tone: 'violet' },

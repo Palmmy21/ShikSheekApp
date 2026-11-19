@@ -63,8 +63,8 @@ export function dashboardMessage(v: DashboardView, comment: string): FlexMessage
       body: sections,
       footer: [
         hbox([
-          button(pb('✍️ จดรายจ่าย', 'add_expense'), 'primary', { flex: 1 }),
-          button(pb('📊 รายงาน', 'reports'), 'secondary', { flex: 1 }),
+          button(pb('จดรายจ่าย', 'add_expense'), 'primary', { flex: 1 }),
+          button(pb('รายงาน', 'reports'), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
         ...(liffLink() ? [button({ type: 'uri', label: '📱 เปิดแอปดูละเอียด', uri: liffLink()! }, 'link')] : []),
       ],
@@ -92,8 +92,8 @@ export function reportsMenuMessage(previousPeriodKey: string): FlexMessage {
           button(pb('เดือนก่อน', 'report_monthly', { k: previousPeriodKey }), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
         hbox([
-          button(pb('📜 ประวัติรายการ', 'txn_history', { p: 0 }), 'secondary', { flex: 1 }),
-          button(pb('🎯 เป้าหมายออม', 'goals'), 'secondary', { flex: 1 }),
+          button(pb('ประวัติ', 'txn_history', { p: 0 }), 'secondary', { flex: 1 }),
+          button(pb('เป้าออม', 'goals'), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
       ],
     }),

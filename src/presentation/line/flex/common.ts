@@ -8,7 +8,7 @@ import { pb } from './actions.ts';
 import { BRAND, bubble, button, card, hbox, header, img, txt, vbox } from './theme.ts';
 
 const flex = (altText: string, contents: FlexMessage['contents'], qr?: FlexMessage['quickReply']): FlexMessage => {
-  const m: FlexMessage = { type: 'flex', altText: altText.slice(0, 1500), contents };
+  const m: FlexMessage = { type: 'flex', altText: Array.from(altText).slice(0, 1500).join(''), contents };
   if (qr) m.quickReply = qr;
   return m;
 };

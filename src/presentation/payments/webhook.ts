@@ -22,7 +22,7 @@ export async function handlePaymentNotification(req: Request, deps: AppDeps): Pr
       await deps.richMenus.sync(r.payment.userId);
       deps.log.info('payment_paid', { user: redactUserId(r.payment.userId), product: r.payment.product, amount: r.payment.amountSatang });
       await deps.line
-        .push(r.payment.userId, [paidMessage(r.payment.plan, r.until)], await retryKeyFor('payment_paid', r.payment.invoiceNo))
+        .push(r.payment.userId, [paidMessage(r.payment.plan, r.until, { ...(r.event ? { event: r.event } : {}), ...(r.feeRecorded ? { feeSatang: r.payment.amountSatang } : {}) })], await retryKeyFor('payment_paid', r.payment.invoiceNo))
         .catch((err) => deps.log.warn('payment_push_failed', { user: redactUserId(r.payment.userId), status: (err as { status?: number }).status ?? 0 }));
     } else if (r.status === 'not_found') {
       deps.log.warn('payment_notification_ignored', {});

@@ -1,4 +1,5 @@
-import { applyPurchase, PRODUCTS, type PaidPlan, type ProductId } from '../../../domain/plans.ts';
+import { applyPurchase, PLAN_RANK, PRODUCTS, type PaidPlan, type ProductId } from '../../../domain/plans.ts';
+import { bangkokToday } from '../../../domain/dates.ts';
 import { toIso, type Sql } from '../sql.ts';
 
 export interface Payment {
@@ -46,6 +47,17 @@ const map = (r: Row): Payment => ({
   paidAt: r.paid_at ? toIso(r.paid_at) : null,
 });
 
+/** converted = first paid membership ever ("became a ShikSheek member") */
+export type PlanEvent = 'converted' | 'renewed' | 'upgraded' | 'downgraded';
+export interface PaidResult {
+  payment: Payment;
+  plan: PaidPlan;
+  end: string;
+  event: PlanEvent;
+  /** the fee recorded as an expense in the member's ledger */
+  expenseTxnId: string | null;
+}
+
 export function paymentRepo(sql: Sql) {
   return {
     async create(userId: string, invoiceNo: string, product: ProductId): Promise<Payment> {
@@ -88,7 +100,7 @@ export function paymentRepo(sql: Sql) {
      * pending → paid exactly once, and extend the subscription in the same transaction.
      * Returns the new subscription end, or null if this payment was already settled.
      */
-    async markPaidAndGrant(invoiceNo: string, ref: { providerRef: string | null; channelCode: string | null }, now: Date): Promise<{ payment: Payment; plan: PaidPlan; end: string } | null> {
+    async markPaidAndGrant(invoiceNo: string, ref: { providerRef: string | null; channelCode: string | null }, now: Date): Promise<PaidResult | null> {
       return sql.transaction(async (tx) => {
         const rows = await tx.query<Row>(
           `update payments set status = 'paid', paid_at = $2, provider_ref = $3, channel_code = $4
@@ -110,7 +122,25 @@ export function paymentRepo(sql: Sql) {
              current_period_end = excluded.current_period_end, updated_at = now()`,
           [payment.userId, next.plan, end],
         );
-        return { payment: { ...payment, status: 'paid' as const }, plan: next.plan, end };
+        // ── membership bookkeeping (same transaction) ──
+        const prior = await tx.query<{ n: unknown }>(`select count(*) as n from payments where user_id = $1 and status = 'paid' and id <> $2`, [payment.userId, payment.id]);
+        const active = current && current.end > now.getTime() ? current.plan : null;
+        const event: PlanEvent =
+          Number(prior[0]?.n ?? 0) === 0 ? 'converted' : !active || active === payment.plan ? 'renewed' : PLAN_RANK[payment.plan] > PLAN_RANK[active] ? 'upgraded' : 'downgraded';
+        await tx.query(
+          `insert into plan_events (user_id, event, plan, product, amount_satang, payment_id) values ($1, $2, $3, $4, $5, $6) on conflict (payment_id) do nothing`,
+          [payment.userId, event, payment.plan, payment.product, payment.amountSatang, payment.id],
+        );
+        await tx.query(`update users set member_since = coalesce(member_since, $2) where line_user_id = $1`, [payment.userId, now.toISOString()]);
+        // the fee is real spending: record it in the member's own ledger (bills), once per invoice
+        const expense = await tx.query<{ id: string }>(
+          `insert into transactions (user_id, type, amount_satang, category_id, note, txn_date, source, external_ref)
+           values ($1, 'expense', $2, 'bills', $3, $4, 'payment', $5)
+           on conflict (user_id, external_ref) where external_ref is not null and deleted_at is null do nothing
+           returning id`,
+          [payment.userId, payment.amountSatang, `ค่าสมาชิก ชิกชิก ${PRODUCTS[payment.product].label}`, bangkokToday(now), `pay:${payment.invoiceNo}`],
+        );
+        return { payment: { ...payment, status: 'paid' as const }, plan: next.plan, end, event, expenseTxnId: expense[0]?.id ?? null };
       });
     },
 

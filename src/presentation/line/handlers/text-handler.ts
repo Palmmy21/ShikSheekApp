@@ -226,7 +226,7 @@ async function handleParsed(ctx: HandlerContext, parsed: ParseResult): Promise<M
       }
       break;
     case 'unknown':
-      return [mascotSays(await deps.personality.comment('unknown', ctx.today), 'thinking', [pb('วิธีใช้', 'help'), pb('✍️ จดรายจ่าย', 'add_expense'), pb('ภาพรวม', 'dashboard')])];
+      return [mascotSays(await deps.personality.comment('unknown', ctx.today), 'thinking', [pb('วิธีใช้', 'help'), pb('จดรายจ่าย', 'add_expense'), pb('ภาพรวม', 'dashboard')])];
   }
   return [helpMessage()];
 }

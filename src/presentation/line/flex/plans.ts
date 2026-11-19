@@ -37,13 +37,13 @@ function buyButtons(p: PaidPlan, o: CheckoutOptions): FlexComponent[] {
 function planCard(p: PaidPlan, current: boolean, o: CheckoutOptions): FlexBubble {
   return bubble({
     size: 'kilo',
-    header: header(`ชิกชิก ${PLANS[p].label}`, priceLine(p), mascotUrl(p === 'pro' ? 'proud' : 'celebrating'), { bg: p === 'pro' ? '#EEE9FF' : undefined }),
+    header: header(`ชิกชิก ${PLANS[p].label}`, `฿${PRICES[p].monthly}/เดือน`, mascotUrl(p === 'pro' ? 'proud' : 'celebrating'), { bg: p === 'pro' ? '#5B3FC4' : undefined, subtitle: `หรือ ฿${PRICES[p].yearly.toLocaleString('en-US')}/ปี` }),
     body: [
       vbox(PLAN_PITCH[p].map((line) => hbox([txt('✓', { flex: 0, color: PLAN_COLOR[p], weight: 'bold', size: 'sm' }), txt(line, { size: 'sm', wrap: true, flex: 1 })], { spacing: 'sm' })), { spacing: 'sm' }),
       ...(p === 'plus' && o.earlyBird ? [txt(`🐣 ผู้ใช้กลุ่มแรก: ฿${PRICES.plus.earlyBirdYearly}/ปี (ปกติ ฿${PRICES.plus.yearly})`, { size: 'xs', color: BRAND.muted, wrap: true })] : []),
       ...(o.payable ? [txt('จ่ายด้วย PromptPay · ไม่ต่ออายุอัตโนมัติ', { size: 'xxs', color: BRAND.muted, wrap: true })] : []),
     ],
-    footer: [...(current ? [txt('✓ แพ็กเกจปัจจุบัน · ซื้อเพิ่มเพื่อต่ออายุได้', { size: 'xs', color: BRAND.green, align: 'center', wrap: true })] : []), ...buyButtons(p, o)],
+    footer: [...(current ? [txt('✓ แพ็กเกจปัจจุบัน ซื้อเพิ่มเพื่อต่ออายุ', { size: 'xs', color: BRAND.green, align: 'center', wrap: true })] : []), ...buyButtons(p, o)],
   });
 }
 
@@ -53,7 +53,7 @@ export function checkoutMessage(paymentId: string, product: ProductId, url: stri
   return flex(`ชำระ ${p.label} ฿${p.baht}`, {
     type: 'bubble',
     size: 'kilo',
-    header: header('ชำระเงิน', `${p.label} · ฿${p.baht.toLocaleString('en-US')}`, mascotUrl('excited')),
+    header: header('ชำระเงิน', `฿${p.baht.toLocaleString('en-US')}`, mascotUrl('excited'), { subtitle: p.label }),
     body: vbox([
       txt('1. แตะ "เปิดหน้าชำระเงิน" จะเห็น QR PromptPay', { size: 'sm', wrap: true }),
       txt('2. สแกนจ่ายด้วยแอปธนาคาร (หรือบันทึกรูป QR แล้วเปิดในแอป)', { size: 'sm', wrap: true }),
@@ -67,9 +67,11 @@ export function checkoutMessage(paymentId: string, product: ProductId, url: stri
   });
 }
 
-export function paidMessage(plan: PaidPlan, until: string | null): FlexMessage {
+export function paidMessage(plan: PaidPlan, until: string | null, info: { event?: 'converted' | 'renewed' | 'upgraded' | 'downgraded'; feeSatang?: number } = {}): FlexMessage {
   const date = until ? new Date(until).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' }) : null;
-  const msg = `ได้รับเงินแล้ว ขอบคุณมากน้า! 🎉 ตอนนี้เป็นชิกชิก ${PLANS[plan].label}${date ? ` ใช้ได้ถึง ${date}` : ''}`;
+  const welcome = info.event === 'converted' ? `ยินดีต้อนรับสู่ครอบครัวชิกชิก ${PLANS[plan].label}! 🎉` : info.event === 'upgraded' ? `อัปเกรดเป็นชิกชิก ${PLANS[plan].label} แล้ว! 🎉` : `ได้รับเงินแล้ว ขอบคุณมากน้า! 🎉 ชิกชิก ${PLANS[plan].label}`;
+  const fee = info.feeSatang ? ` จดค่าสมาชิก ฿${(info.feeSatang / 100).toLocaleString('en-US')} เป็นรายจ่ายหมวดบิลให้แล้ว` : '';
+  const msg = `${welcome}${date ? ` ใช้ได้ถึง ${date}` : ''}${fee}`;
   return flex(msg, {
     type: 'bubble',
     size: 'kilo',
@@ -78,7 +80,7 @@ export function paidMessage(plan: PaidPlan, until: string | null): FlexMessage {
         { type: 'image', url: mascotUrl('celebrating'), size: '72px', flex: 0 } as FlexComponent,
         vbox([txt(msg, { size: 'sm', wrap: true })], { backgroundColor: BRAND.white, cornerRadius: '14px', paddingAll: '12px', flex: 1, justifyContent: 'center' }),
       ], { spacing: 'md', alignItems: 'center' }),
-      hbox([button(pb('แพ็กเกจของฉัน', 'plans'), 'secondary', { flex: 1, height: 'sm' }), button(pb('ภาพรวม', 'dashboard'), 'primary', { flex: 1, height: 'sm' })], { spacing: 'sm' }),
+      vbox([button(pb('ดูภาพรวม', 'dashboard'), 'primary', { height: 'sm' }), button(pb('แพ็กเกจของฉัน', 'plans'), 'secondary', { height: 'sm' })], { spacing: 'sm' }),
     ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
   });
 }
@@ -118,7 +120,7 @@ export function planStatusMessage(s: PlanStatus, u: PlanUsage, o: CheckoutOption
       ),
       txt('จดผ่านแชท ถามยอด ส่งออก/ลบข้อมูล ฟรีไม่จำกัดเสมอ', { size: 'xs', color: BRAND.muted, wrap: true }),
     ],
-    footer: [button(pb('🎁 ชวนเพื่อน รับ Plus ฟรี', 'invite'), 'secondary', { height: 'sm' })],
+    footer: [button(pb('ชวนเพื่อน รับ Plus ฟรี', 'invite'), 'secondary', { height: 'sm' })],
   });
   const paidNow = s.source === 'paid' ? s.plan : null;
   return flex(`แพ็กเกจ ${s.limits.label}`, { type: 'carousel', contents: [status, planCard('plus', paidNow === 'plus', o), planCard('pro', paidNow === 'pro', o)] });
@@ -147,11 +149,11 @@ export function planLimitMessage(err: PlanLimitError, payable = false): FlexMess
         txt(`อัปเกรดเป็น ${PLANS[target].label} · ${priceLine(target)}`, { weight: 'bold', size: 'sm', wrap: true }),
         ...PLAN_PITCH[target].slice(0, 3).map((l) => txt(`✓ ${l}`, { size: 'xs', color: BRAND.muted, wrap: true })),
       ], { spacing: 'xs' }),
-      hbox([
-        button(pb('ดูแพ็กเกจ', 'plans'), 'secondary', { flex: 1, height: 'sm' }),
+      vbox([
         payable
-          ? button(pb(`สมัคร ${PLANS[target].label}`, 'plans'), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[target] })
-          : button(pb(`สนใจ ${PLANS[target].label}`, 'plan_interest', { p: target }), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[target] }),
+          ? button(pb(`สมัคร ${PLANS[target].label}`, 'plans'), 'primary', { height: 'sm', color: PLAN_COLOR[target] })
+          : button(pb(`สนใจ ${PLANS[target].label}`, 'plan_interest', { p: target }), 'primary', { height: 'sm', color: PLAN_COLOR[target] }),
+        button(pb('ดูแพ็กเกจทั้งหมด', 'plans'), 'secondary', { height: 'sm' }),
       ], { spacing: 'sm' }),
     ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
   });
@@ -172,9 +174,9 @@ export function renewalMessage(plan: PaidPlan, end: string, ended: boolean): Fle
         { type: 'image', url: mascotUrl(ended ? 'sleepy' : 'discipline'), size: '64px', flex: 0 } as FlexComponent,
         vbox([txt(msg, { size: 'sm', wrap: true })], { backgroundColor: BRAND.white, cornerRadius: '14px', paddingAll: '12px', flex: 1, justifyContent: 'center' }),
       ], { spacing: 'md', alignItems: 'center' }),
-      hbox([
-        button(pb(`ต่อรายเดือน ฿${PRICES[plan].monthly}`, 'pay_start', { p: plan === 'plus' ? 'plus_monthly' : 'pro_monthly' }), 'secondary', { flex: 1, height: 'sm' }),
-        button(pb(`ต่อรายปี ฿${PRICES[plan].yearly.toLocaleString('en-US')}`, 'pay_start', { p: plan === 'plus' ? 'plus_yearly' : 'pro_yearly' }), 'primary', { flex: 1, height: 'sm', color: PLAN_COLOR[plan] }),
+      vbox([
+        button(pb(`ต่ออายุรายปี ฿${PRICES[plan].yearly.toLocaleString('en-US')}`, 'pay_start', { p: plan === 'plus' ? 'plus_yearly' : 'pro_yearly' }), 'primary', { height: 'sm', color: PLAN_COLOR[plan] }),
+        button(pb(`ต่ออายุรายเดือน ฿${PRICES[plan].monthly}`, 'pay_start', { p: plan === 'plus' ? 'plus_monthly' : 'pro_monthly' }), 'secondary', { height: 'sm' }),
       ], { spacing: 'sm' }),
     ], { backgroundColor: BRAND.cream, paddingAll: '12px', spacing: 'md' }),
   });

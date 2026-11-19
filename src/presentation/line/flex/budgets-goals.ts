@@ -49,7 +49,7 @@ export function budgetsOverviewMessage(statuses: BudgetStatus[], periodTitle: st
       bubble({
         header: header('งบประมาณ', 'ยังไม่ได้ตั้งงบ', mascotUrl('planning')),
         body: [txt('ตั้งงบรายหมวด เช่น อาหารเดือนละ 6,000 แล้วชิกชิกจะเตือนเมื่อใช้ถึง 50%, 80% และ 100%')],
-        footer: [button(pb('➕ ตั้งงบ', 'budget_add')), button(pb('🎯 เป้าหมายออม', 'goals'), 'secondary')],
+        footer: [button(pb('➕ ตั้งงบ', 'budget_add')), button(pb('เป้าออม', 'goals'), 'secondary')],
       }),
     );
   }
@@ -65,7 +65,7 @@ export function budgetsOverviewMessage(statuses: BudgetStatus[], periodTitle: st
         ),
         txt('แตะที่งบเพื่อลบ · ตั้งหมวดเดิมซ้ำเพื่อแก้ยอด', { size: 'xxs', color: BRAND.muted, align: 'center' }),
       ],
-      footer: [hbox([button(pb('➕ ตั้งงบ', 'budget_add'), 'primary', { flex: 1 }), button(pb('🎯 เป้าหมายออม', 'goals'), 'secondary', { flex: 1 })], { spacing: 'sm' })],
+      footer: [hbox([button(pb('➕ ตั้งงบ', 'budget_add'), 'primary', { flex: 1 }), button(pb('เป้าออม', 'goals'), 'secondary', { flex: 1 })], { spacing: 'sm' })],
     }),
   );
 }

@@ -69,7 +69,7 @@ describe('เก็บก่อนใช้ (pay yourself first)', () => {
     const msgs = await say('ได้เงินเดือน 25000');
     await tap(button(msgs, 'txn_confirm')).then((saved) => {
       expect(all(saved)).toContain('a=save_first');
-      expect(all(saved)).toContain('20% ฿5,000');
+      expect(all(saved)).toContain('เก็บ 20% · ฿5,000');
       return saved;
     });
     const saved = line.lastReply();

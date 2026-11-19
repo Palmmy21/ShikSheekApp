@@ -9,7 +9,7 @@ import type { Frequency, StoredOccurrenceStatus } from '../recurrence.ts';
 export type UserId = string;
 
 export type TransactionType = 'income' | 'expense' | 'saving';
-export type TransactionSource = 'chat' | 'rich_menu' | 'fixed_cost' | 'savings' | 'import' | 'slip' | 'pdf' | 'liff';
+export type TransactionSource = 'chat' | 'rich_menu' | 'fixed_cost' | 'savings' | 'import' | 'slip' | 'pdf' | 'liff' | 'payment';
 
 export interface Transaction {
   id: string;

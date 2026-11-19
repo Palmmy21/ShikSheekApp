@@ -123,7 +123,7 @@ describe('PromptPay checkout via Stripe', () => {
     expect((await notify(pg.event(payment.invoice_no))).status).toBe(200);
     expect(await deps.plans.status(U)).toMatchObject({ plan: 'plus', source: 'paid', daysLeft: 30 });
     expect(line.pushes).toHaveLength(1);
-    expect(alt(line.pushes[0]!.messages)).toContain('ได้รับเงินแล้ว');
+    expect(alt(line.pushes[0]!.messages)).toContain('ยินดีต้อนรับสู่ครอบครัวชิกชิก');
 
     // retries / duplicates never extend twice or re-notify
     await notify(pg.event(payment.invoice_no));
@@ -203,5 +203,34 @@ describe('test-mode safety', () => {
   });
   it('"ไอดีของฉัน" replies with the user\'s own LINE id', async () => {
     expect(JSON.stringify(await send(textEvent(U, 'ไอดีของฉัน')))).toContain(U);
+  });
+});
+
+describe('membership bookkeeping', () => {
+  it('first payment: fee recorded as an expense, member_since set, "converted" logged; later buys are renewed/upgraded', async () => {
+    const { payment } = await startCheckout('plus_monthly');
+    pg.pay(payment.invoice_no);
+    await notify(pg.event(payment.invoice_no));
+    await notify(pg.event(payment.invoice_no)); // duplicate delivery
+    expect(alt(line.pushes[0]!.messages)).toContain('ยินดีต้อนรับสู่ครอบครัวชิกชิก Plus');
+    expect(alt(line.pushes[0]!.messages)).toContain('จดค่าสมาชิก ฿49');
+
+    const fees = (await deps.repos.transactions.listRecent(U, 10)).filter((t) => t.source === 'payment');
+    expect(fees).toHaveLength(1);
+    expect(fees[0]).toMatchObject({ type: 'expense', amountSatang: 4900, categoryId: 'bills', note: 'ค่าสมาชิก ชิกชิก Plus รายเดือน' });
+    const [u] = await db.sql.query<{ member_since: unknown }>(`select member_since from users where line_user_id = $1`, [U]);
+    expect(u!.member_since).not.toBeNull();
+
+    const renew = await startCheckout('plus_yearly');
+    pg.pay(renew.payment.invoice_no);
+    await notify(pg.event(renew.payment.invoice_no));
+    const up = await startCheckout('pro_monthly');
+    pg.pay(up.payment.invoice_no);
+    await notify(pg.event(up.payment.invoice_no));
+    const events = await db.sql.query<{ event: string }>(`select event from plan_events where user_id = $1 order by created_at, event`, [U]);
+    expect(events.map((e) => e.event).sort()).toEqual(['converted', 'renewed', 'upgraded']);
+    const [u2] = await db.sql.query<{ member_since: unknown }>(`select member_since from users where line_user_id = $1`, [U]);
+    expect(String(u2!.member_since)).toBe(String(u!.member_since)); // first conversion date kept
+    expect((await deps.repos.transactions.listRecent(U, 10)).filter((t) => t.source === 'payment')).toHaveLength(3);
   });
 });

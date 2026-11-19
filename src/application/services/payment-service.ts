@@ -7,7 +7,7 @@
  */
 import { EARLY_BIRD_LIMIT, PRODUCTS, type ProductId } from '../../domain/plans.ts';
 import type { Repos } from '../../infrastructure/db/repositories/index.ts';
-import type { Payment } from '../../infrastructure/db/repositories/payments.ts';
+import type { Payment, PlanEvent } from '../../infrastructure/db/repositories/payments.ts';
 import type { PaymentGateway } from '../../infrastructure/payments/gateway.ts';
 
 export interface PaymentUrls {
@@ -23,7 +23,7 @@ export interface PaymentAccess {
 }
 
 export type SettleResult =
-  | { status: 'paid'; newlyPaid: boolean; payment: Payment; until: string | null }
+  | { status: 'paid'; newlyPaid: boolean; payment: Payment; until: string | null; event?: PlanEvent; feeRecorded?: boolean }
   | { status: 'pending'; payment: Payment }
   | { status: 'not_found' };
 
@@ -50,7 +50,7 @@ export function createPaymentService(repos: Repos, gateway: PaymentGateway, urls
     if (!exact) return { status: 'pending', payment };
     const done = await repos.payments.markPaidAndGrant(payment.invoiceNo, { providerRef: r.referenceNo, channelCode: r.channelCode }, clock());
     if (!done) return { status: 'paid', newlyPaid: false, payment: { ...payment, status: 'paid' }, until: null };
-    return { status: 'paid', newlyPaid: true, payment: done.payment, until: done.end };
+    return { status: 'paid', newlyPaid: true, payment: done.payment, until: done.end, event: done.event, feeRecorded: done.expenseTxnId !== null };
   }
 
   return {

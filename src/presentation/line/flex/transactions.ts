@@ -126,7 +126,7 @@ export function transactionSavedMessage(t: Transaction, today: LocalDate, commen
       footer: [
         hbox([
           button(pb('ดูภาพรวม', 'dashboard'), 'primary', { flex: 1 }),
-          button(pb('↩️ ลบรายการนี้', 'txn_delete_confirm', { id: t.id }, { displayText: 'ลบรายการนี้' }), 'secondary', { flex: 1 }),
+          button(pb('ลบรายการนี้', 'txn_delete_confirm', { id: t.id }, { displayText: 'ลบรายการนี้' }), 'secondary', { flex: 1 }),
         ], { spacing: 'sm' }),
       ],
     }),
@@ -240,7 +240,7 @@ export function multiSavedMessage(undoId: string | null, txns: Transaction[], to
       footer: [
         hbox([
           button(pb('ดูภาพรวม', 'dashboard'), 'primary', { flex: 1 }),
-          ...(undoId ? [button(pb('↩️ ยกเลิกทั้งหมด', 'multi_undo', { id: undoId }, { displayText: 'ยกเลิกทั้งหมด' }), 'secondary', { flex: 1 })] : []),
+          ...(undoId ? [button(pb('ยกเลิกทั้งหมด', 'multi_undo', { id: undoId }, { displayText: 'ยกเลิกทั้งหมด' }), 'secondary', { flex: 1 })] : []),
         ], { spacing: 'sm' }),
       ],
     }),

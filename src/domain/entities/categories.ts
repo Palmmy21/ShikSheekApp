@@ -47,7 +47,7 @@ export const CATEGORIES: readonly Category[] = [
     keywords: ['หนังสือ', 'คอร์ส', 'เรียน', 'ค่าเทอม', 'ติว', 'udemy'],
   },
   {
-    id: 'family', kind: 'expense', labelTh: 'ครอบครัว/ให้', emoji: '👨‍👩‍👧',
+    id: 'family', kind: 'expense', labelTh: 'ครอบครัว/ให้', emoji: '👪',
     keywords: ['ให้แม่', 'ให้พ่อ', 'ให้ที่บ้าน', 'ส่งเงินบ้าน', 'ทำบุญ', 'บริจาค', 'ของขวัญ', 'ซองงานแต่ง', 'ใส่ซอง', 'แฟน', 'ลูก'],
   },
   {
