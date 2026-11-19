@@ -78,3 +78,25 @@ export function applyPurchase(current: { plan: PaidPlan; end: number } | null, p
   const converted = Math.floor((remaining * PRICES[current.plan].monthly) / PRICES[p.plan].monthly);
   return { plan: p.plan, end: now + converted + add };
 }
+
+/** Referral reward: both the inviter and the invited friend get this many days of Plus. */
+export const REFERRAL_REWARD_DAYS = 30;
+/** Most rewarded invitations per inviter (12 × 30 days ≈ a year of Plus). */
+export const REFERRAL_MAX_REWARDS = 12;
+/** Entries the invited friend records before both rewards unlock (a real user, not a throwaway). */
+export const REFERRAL_ACTIVATION_ENTRIES = 3;
+
+/**
+ * Add `days` of `plan` to the current subscription (bonus/referral/promo). Same rules as buying:
+ * same plan → extend; different plan → convert the remaining time at the monthly-price ratio.
+ */
+export function applyGrant(current: { plan: PaidPlan; end: number } | null, plan: PaidPlan, days: number, now: number): { plan: PaidPlan; end: number } {
+  const add = days * DAY;
+  if (!current || current.end <= now) return { plan, end: now + add };
+  if (current.plan === plan) return { plan, end: current.end + add };
+  // keep the better plan, convert the granted days into it
+  const keep = PLAN_RANK[current.plan] >= PLAN_RANK[plan] ? current.plan : plan;
+  const remaining = current.end - now;
+  const toKeep = (ms: number, from: PaidPlan) => (from === keep ? ms : Math.floor((ms * PRICES[from].monthly) / PRICES[keep].monthly));
+  return { plan: keep, end: now + toKeep(remaining, current.plan) + toKeep(add, plan) };
+}

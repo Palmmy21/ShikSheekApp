@@ -23,6 +23,7 @@ import { toOccurrenceView } from '../../src/domain/calculations/bills.ts';
 import { importSummaryMessage } from '../../src/presentation/line/flex/imports.ts';
 import { saveFirstMessage, sweepMessage, wealthPlanMessage } from '../../src/presentation/line/flex/wealth.ts';
 import { scanPrompt } from '../../src/presentation/line/handlers/views.ts';
+import { claimReply, inviteMessage, referralRewardMessage, streakMilestoneMessage, streakReminderMessage, winbackMessage } from '../../src/presentation/line/flex/engagement.ts';
 import { checkoutMessage, paidMessage, planLimitMessage, planStatusMessage, renewalMessage } from '../../src/presentation/line/flex/plans.ts';
 import { PlanLimitError } from '../../src/application/services/entitlement-service.ts';
 import { PLANS } from '../../src/domain/plans.ts';
@@ -129,6 +130,8 @@ export function buildSamples(): Record<string, Message[]> {
       sweepMessage('2026-10', 412_350),
       ...scanPrompt(),
     ],
+    engagement: [inviteMessage({ code: 'AB3XYZ', invited: 3, rewarded: 2, remaining: 10 }), claimReply('ok', 'ปาล์ม'), streakMilestoneMessage(30, '2026-12-26T00:00:00Z'), referralRewardMessage('referrer', '2026-12-19T00:00:00Z'), streakReminderMessage(6)],
+    engagement_2: [claimReply('not_new', null), claimReply('invalid', null), streakMilestoneMessage(3, null), referralRewardMessage('referee', null), winbackMessage()],
     import_summary: [importSummaryMessage(UUID, { count: 42, incomeSatang: 2_500_000, expenseSatang: 1_834_550, firstDate: '2026-10-01', lastDate: '2026-10-31' }, Array.from({ length: 8 }, (_, i) => ({ type: i % 5 === 0 ? 'income' as const : 'expense' as const, amountSatang: 6_500 + i, categoryId: 'food', categoryConfident: true, note: i === 2 ? LONG : 'ร้านข้าว', txnDate: '2026-10-0' + (i + 1), dateGuessed: false, externalRef: null })), 3, 5)],
   };
 }

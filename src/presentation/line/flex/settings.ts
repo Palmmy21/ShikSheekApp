@@ -16,6 +16,7 @@ const PREF_LABEL: Record<keyof NotificationPrefs, string> = {
   monthlySummary: 'สรุปสิ้นรอบเดือน',
   billReminders: 'เตือนบิล (08:00)',
   budgetAlerts: 'เตือนเมื่อใกล้เกินงบ',
+  streakReminders: 'เตือนสตรีค 🔥 (20:00)',
 };
 
 export function settingsMessage(u: UserProfile): FlexMessage {
@@ -43,6 +44,7 @@ export function settingsMessage(u: UserProfile): FlexMessage {
       footer: [
         hbox([button(pb('📦 ส่งออกข้อมูล', 'data_export'), 'secondary', { flex: 1 }), button(pb('🗑️ ลบข้อมูล', 'data_delete'), 'secondary', { flex: 1 })], { spacing: 'sm' }),
         button(pb('⭐ แพ็กเกจของฉัน', 'plans'), 'link'),
+        button(pb('🎁 ชวนเพื่อน รับ Plus ฟรี', 'invite'), 'link'),
         ...(liffLink() ? [button({ type: 'uri', label: '📱 ตั้งค่าในแอป', uri: liffLink()! }, 'link')] : []),
       ],
     }),

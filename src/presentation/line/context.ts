@@ -2,6 +2,7 @@ import type { EntitlementService } from '../../application/services/entitlement-
 import type { PaymentService } from '../../application/services/payment-service.ts';
 import type { RichMenuSync } from '../../application/services/rich-menu-sync.ts';
 import type { WealthService } from '../../application/services/wealth-service.ts';
+import type { EngagementService } from '../../application/services/engagement-service.ts';
 import type { FinanceService } from '../../application/services/finance-service.ts';
 import type { FixedCostService } from '../../application/services/fixed-cost-service.ts';
 import type { TransactionService } from '../../application/services/transaction-service.ts';
@@ -33,6 +34,8 @@ export interface AppDeps {
   richMenus: RichMenuSync;
   /** savings-first plan, เก็บก่อนใช้, month-end sweep */
   wealth: WealthService;
+  /** streaks, referrals, retention rewards */
+  engagement: EngagementService;
   personality: PersonalityService;
   /** Optional Claude layer for messages the rule-based parser cannot understand. */
   ai?: AiClient;

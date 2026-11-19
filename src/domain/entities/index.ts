@@ -34,6 +34,8 @@ export interface NotificationPrefs {
   budgetAlerts: boolean;
   monthlySummary: boolean;
   weeklySummary: boolean;
+  /** streak-at-risk reminder (20:00) and one gentle nudge after 3 quiet days */
+  streakReminders: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
@@ -42,6 +44,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   budgetAlerts: true,
   monthlySummary: true,
   weeklySummary: false,
+  streakReminders: true,
 };
 
 export type OnboardingState = 'new' | 'asked_income' | 'asked_cycle' | 'done';

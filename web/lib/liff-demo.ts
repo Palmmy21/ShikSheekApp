@@ -31,6 +31,7 @@ const budgets = [
 ];
 
 const ROUTES: Record<string, unknown> = {
+  '/referral': { code: 'AB3XYZ', invited: 3, rewarded: 2, remaining: 10, link: 'https://liff.line.me/demo?ref=AB3XYZ', shareText: 'มาจดเงินกับชิกชิก', rewardDays: 30, activationEntries: 3, streak: 6 },
   '/plan': {
     plan: 'pro', label: 'Pro', source: 'trial', until: '2026-12-02T00:00:00Z', daysLeft: 9,
     limits: { fixedCosts: null, goals: null, categoryBudgets: true, docsPerMonth: 500, aiPerMonth: null, scheduledPush: true },
@@ -41,7 +42,7 @@ const ROUTES: Record<string, unknown> = {
       pro: ['ทุกอย่างใน Plus', 'เป้าออมไม่จำกัด', 'อ่านสลิป/PDF 500 ครั้ง/เดือน', 'ได้ใช้ฟีเจอร์ใหม่ก่อนใคร: บัตรเครดิตหลายใบ ผู้ช่วยลดหย่อนภาษี กระเป๋าครอบครัว'],
     },
   },
-  '/me': { plan: { id: 'pro', label: 'Pro', source: 'trial', daysLeft: 9 }, displayName: 'ปาล์ม', cycleStartDay: 1, autoRecord: false, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true }, today },
+  '/me': { plan: { id: 'pro', label: 'Pro', source: 'trial', daysLeft: 9 }, displayName: 'ปาล์ม', cycleStartDay: 1, autoRecord: false, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true, streakReminders: true }, today },
   '/categories': categories,
   '/dashboard': {
     period: { key: '2026-11', start: '2026-11-01', end: '2026-11-30' },

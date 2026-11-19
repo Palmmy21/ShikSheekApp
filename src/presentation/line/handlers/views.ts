@@ -21,6 +21,8 @@ import { pb } from '../flex/actions.ts';
 import { billChoice } from './edit-handler.ts';
 import { planStatusMessage } from '../flex/plans.ts';
 import { saveFirstMessage, sweepMessage, wealthPlanMessage } from '../flex/wealth.ts';
+import { inviteMessage, referralRewardMessage, streakMilestoneMessage } from '../flex/engagement.ts';
+import { retryKeyFor } from '../../../application/jobs.ts';
 import { SAVE_FIRST_MIN_INCOME } from '../../../domain/calculations/wealth.ts';
 
 export async function showDashboard(ctx: HandlerContext): Promise<Message[]> {
@@ -143,7 +145,7 @@ export async function proposeTransaction(ctx: HandlerContext, input: Transaction
 
 /** Success card + any budget alerts + onboarding completion. */
 export async function afterTransactionSaved(ctx: HandlerContext, t: Transaction): Promise<Message[]> {
-  const dash = await ctx.deps.finance.dashboard(ctx.userId, ctx.today);
+  const [dash, eng] = await Promise.all([ctx.deps.finance.dashboard(ctx.userId, ctx.today), ctx.deps.engagement.onEntryRecorded(ctx.userId)]);
   const big = t.type === 'expense' && t.amountSatang >= 500_000;
   const situation: Situation = t.type === 'income' ? 'saved_income' : t.type === 'saving' ? 'saved_saving' : big ? 'saved_expense_big' : 'saved_expense';
   const messages: Message[] = [
@@ -151,8 +153,14 @@ export async function afterTransactionSaved(ctx: HandlerContext, t: Transaction)
       todayExpenseSatang: dash.todayExpenseSatang,
       availableSatang: dash.available.availableSatang,
       dailyAllowanceSatang: dash.available.dailyAllowanceSatang,
+      streakDays: eng.streak.days,
     }),
   ];
+  if (eng.milestone) messages.push(streakMilestoneMessage(eng.milestone, eng.streakRewardUntil));
+  if (eng.referral) {
+    messages.push(referralRewardMessage('referee', eng.referral.refereeUntil));
+    await notifyReferrer(ctx, eng.referral.referrerId, eng.referral.referrerUntil);
+  }
   if (t.type === 'expense') {
     for (const alert of await ctx.deps.finance.budgetAlertsFor(ctx.userId, ctx.today, t.categoryId)) {
       const sit: Situation = alert.threshold >= 100 ? 'budget_exceeded' : 'budget_warning';
@@ -272,4 +280,18 @@ export function scanPrompt(): Message[] {
       pb('พิมพ์เอง', 'add_expense'),
     ]),
   ];
+}
+
+/** "ชวนเพื่อน": the user's code, share button and progress. */
+export async function showInvite(ctx: HandlerContext): Promise<Message[]> {
+  return [inviteMessage(await ctx.deps.engagement.referralInfo(ctx.userId))];
+}
+
+/** Tell the inviter their friend activated (push; failures are logged, never block the reply). */
+async function notifyReferrer(ctx: HandlerContext, referrerId: string, until: string | null): Promise<void> {
+  if (!until) return; // inviter already hit the reward cap
+  await ctx.deps.richMenus.sync(referrerId);
+  await ctx.deps.line
+    .push(referrerId, [referralRewardMessage('referrer', until)], await retryKeyFor('referral_reward', referrerId, ctx.userId))
+    .catch((err) => ctx.deps.log.warn('referral_push_failed', { status: (err as { status?: number }).status ?? 0 }));
 }

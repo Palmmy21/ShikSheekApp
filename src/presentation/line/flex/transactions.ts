@@ -104,6 +104,8 @@ export interface SavedExtras {
   todayExpenseSatang?: Satang;
   availableSatang?: Satang;
   dailyAllowanceSatang?: Satang;
+  /** consecutive days with an entry (shown from 2) */
+  streakDays?: number;
 }
 
 export function transactionSavedMessage(t: Transaction, today: LocalDate, comment: string, mascot: MascotExpression, extras: SavedExtras = {}): FlexMessage {
@@ -120,7 +122,7 @@ export function transactionSavedMessage(t: Transaction, today: LocalDate, commen
       header: header('บันทึกแล้ว ✓', `${cat.emoji} ${signed(t.type, t.amountSatang)}`, mascotUrl(mascot), {
         subtitle: `${cat.labelTh} · ${dateLabel(t.txnDate, today)}`,
       }),
-      body: [txt(comment), ...(stats.length ? [card(stats)] : [])],
+      body: [txt(comment), ...(stats.length ? [card(stats)] : []), ...(extras.streakDays && extras.streakDays >= 2 ? [txt(`🔥 จดต่อเนื่อง ${extras.streakDays} วัน`, { size: 'sm', weight: 'bold', color: BRAND.deepRed })] : [])],
       footer: [
         hbox([
           button(pb('ดูภาพรวม', 'dashboard'), 'primary', { flex: 1 }),

@@ -74,7 +74,7 @@ export const ACTION_PARAMS = {
   onboard_cycle: z.object({ day: z.coerce.number().int().min(1).max(28) }),
   onboard_skip_income: z.object({}),
   settings: z.object({}),
-  settings_toggle: z.object({ k: z.enum(['dailySummary', 'weeklySummary', 'monthlySummary', 'billReminders', 'budgetAlerts']) }),
+  settings_toggle: z.object({ k: z.enum(['dailySummary', 'weeklySummary', 'monthlySummary', 'billReminders', 'budgetAlerts', 'streakReminders']) }),
   settings_cycle: z.object({}),
   data_export: z.object({}),
   data_delete: z.object({}),
@@ -93,6 +93,7 @@ export const ACTION_PARAMS = {
   save_first: z.object({ id: uuid, p: z.enum(['10', '20', '30']) }),
   sweep: z.object({ k: z.string().regex(/^\d{4}-\d{2}$/), f: z.enum(['all', 'half']) }),
   scan: z.object({}),
+  invite: z.object({}),
   cancel_flow: z.object({}),
   draft_cancel: z.object({ id: uuid }), // cancel any pending draft (fixed cost / goal)
 } as const;

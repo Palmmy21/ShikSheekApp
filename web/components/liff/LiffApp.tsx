@@ -16,6 +16,16 @@ type Tab = 'home' | 'txns' | 'bills' | 'plans' | 'settings';
 const TAB_IDS: readonly Tab[] = ['home', 'txns', 'bills', 'plans', 'settings'];
 
 /** ?tab=… from a Rich Menu link (LIFF forwards it via liff.state, then it appears in the URL). */
+/** ?ref=CODE from an invite link (directly or via liff.state). */
+function refFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search);
+  let r = q.get('ref');
+  const state = q.get('liff.state');
+  if (!r && state) r = new URLSearchParams(state.slice(state.indexOf('?') + 1)).get('ref');
+  return r && /^[A-Za-z0-9]{6}$/.test(r) ? r.toUpperCase() : null;
+}
+
 function tabFromUrl(): Tab | null {
   if (typeof window === 'undefined') return null;
   const q = new URLSearchParams(window.location.search);
@@ -59,6 +69,20 @@ export default function LiffApp() {
         await initLiff();
         const fromUrl = tabFromUrl();
         if (fromUrl) setTab(fromUrl);
+        // invited via ?ref=CODE → record the referral once (server validates everything)
+        const ref = refFromUrl();
+        if (ref) {
+          try {
+            const done = sessionStorage.getItem('shiksheek:ref') === ref;
+            if (!done) {
+              sessionStorage.setItem('shiksheek:ref', ref);
+              await api('/referral/claim', { method: 'POST', body: { code: ref } });
+              toast.show('รับคำชวนแล้ว 🎉 จดครบ 3 รายการ รับ Plus ฟรี 30 วันทั้งคู่!');
+            }
+          } catch {
+            /* invalid/expired codes are silently ignored here; the chat explains them */
+          }
+        }
         const [m, c] = await Promise.all([api<Me>('/me'), api<Category[]>('/categories')]);
         setMe(m);
         setCategories(c);
@@ -525,6 +549,48 @@ function GoalSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => 
   );
 }
 
+// ── INVITE ──
+interface ReferralInfo {
+  code: string;
+  invited: number;
+  rewarded: number;
+  remaining: number;
+  link: string;
+  shareText: string;
+  rewardDays: number;
+  activationEntries: number;
+  streak: number;
+}
+
+function InviteCard({ toast }: { toast: ScreenProps['toast'] }) {
+  const [r, setR] = useState<ReferralInfo | null>(null);
+  useEffect(() => {
+    api<ReferralInfo>('/referral').then(setR).catch(() => {});
+  }, []);
+  if (!r) return null;
+  const share = `https://line.me/R/share?text=${encodeURIComponent(r.shareText)}`;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(r!.code);
+      toast('คัดลอกโค้ดแล้ว');
+    } catch {
+      toast(`โค้ดของคุณ: ${r!.code}`);
+    }
+  }
+  return (
+    <section className="card invite">
+      <div className="card__head">
+        <h3>🎁 ชวนเพื่อน รับ Plus ฟรี {r.rewardDays} วัน</h3>
+        {r.streak >= 2 && <span className="streak-chip">🔥 {r.streak} วัน</span>}
+      </div>
+      <p className="muted small">เพื่อนเข้าผ่านลิงก์ของคุณแล้วจดครบ {r.activationEntries} รายการ ได้ Plus ฟรีทั้งคู่ (สูงสุด 12 คน)</p>
+      <button className="invite__code" onClick={copy} aria-label="คัดลอกโค้ด">{r.code}</button>
+      <a className="btn btn--primary" href={share}>📤 แชร์ให้เพื่อนใน LINE</a>
+      <p className="muted small">ชวนสำเร็จ {r.rewarded} คน{r.invited > r.rewarded ? ` · รอเพื่อนจดให้ครบอีก ${r.invited - r.rewarded} คน` : ''}</p>
+    </section>
+  );
+}
+
 // ── PLAN ──
 function Meter({ label, used, limit }: { label: string; used: number; limit: number | null }) {
   const pct = limit ? Math.round((used / limit) * 100) : 0;
@@ -626,6 +692,7 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
 function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me) => void }) {
   const labels: Record<keyof Me['notifications'], [string, string]> = {
     dailySummary: ['สรุปรายวัน', 'ทุกวัน 21:00'],
+    streakReminders: ['เตือนสตรีค 🔥', 'เตือน 20:00 เฉพาะวันที่ยังไม่ได้จด'],
     weeklySummary: ['สรุปรายสัปดาห์', 'วันอาทิตย์ 20:00'],
     monthlySummary: ['สรุปสิ้นรอบเดือน', 'วันแรกของรอบใหม่'],
     billReminders: ['เตือนบิล', 'ทุกเช้า 08:00'],
@@ -655,6 +722,7 @@ function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me)
   return (
     <>
       <PlanCard toast={toast} />
+      <InviteCard toast={toast} />
       <section className="card">
         <h3>การจด</h3>
         <ul className="toggles">

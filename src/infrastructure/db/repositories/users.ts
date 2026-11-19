@@ -10,6 +10,7 @@ interface UserRow {
   notify_monthly_summary: boolean;
   notify_bill_reminders: boolean;
   notify_budget_alerts: boolean;
+  notify_streak: boolean;
   onboarding: OnboardingState;
   is_following: boolean;
   auto_record: boolean;
@@ -17,7 +18,7 @@ interface UserRow {
 }
 
 const COLUMNS = `line_user_id, display_name, cycle_start_day, notify_daily_summary, notify_weekly_summary,
-  notify_monthly_summary, notify_bill_reminders, notify_budget_alerts, onboarding, is_following, auto_record, created_at`;
+  notify_monthly_summary, notify_bill_reminders, notify_budget_alerts, notify_streak, onboarding, is_following, auto_record, created_at`;
 
 const PREF_COLUMNS: Record<keyof NotificationPrefs, string> = {
   dailySummary: 'notify_daily_summary',
@@ -25,6 +26,7 @@ const PREF_COLUMNS: Record<keyof NotificationPrefs, string> = {
   monthlySummary: 'notify_monthly_summary',
   billReminders: 'notify_bill_reminders',
   budgetAlerts: 'notify_budget_alerts',
+  streakReminders: 'notify_streak',
 };
 
 function map(r: UserRow): UserProfile {
@@ -38,6 +40,7 @@ function map(r: UserRow): UserProfile {
       monthlySummary: r.notify_monthly_summary,
       billReminders: r.notify_bill_reminders,
       budgetAlerts: r.notify_budget_alerts,
+      streakReminders: r.notify_streak !== false,
     },
     onboarding: r.onboarding,
     isFollowing: r.is_following,

@@ -92,7 +92,7 @@ export interface Me {
   displayName: string | null;
   cycleStartDay: number;
   autoRecord: boolean;
-  notifications: Record<'dailySummary' | 'weeklySummary' | 'monthlySummary' | 'billReminders' | 'budgetAlerts', boolean>;
+  notifications: Record<'dailySummary' | 'weeklySummary' | 'monthlySummary' | 'billReminders' | 'budgetAlerts' | 'streakReminders', boolean>;
   today: string;
   plan?: { id: 'free' | 'plus' | 'pro'; label: string; source: 'free' | 'trial' | 'paid'; daysLeft: number | null };
 }

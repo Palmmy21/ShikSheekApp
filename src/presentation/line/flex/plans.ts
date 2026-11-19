@@ -118,6 +118,7 @@ export function planStatusMessage(s: PlanStatus, u: PlanUsage, o: CheckoutOption
       ),
       txt('จดผ่านแชท ถามยอด ส่งออก/ลบข้อมูล ฟรีไม่จำกัดเสมอ', { size: 'xs', color: BRAND.muted, wrap: true }),
     ],
+    footer: [button(pb('🎁 ชวนเพื่อน รับ Plus ฟรี', 'invite'), 'secondary', { height: 'sm' })],
   });
   const paidNow = s.source === 'paid' ? s.plan : null;
   return flex(`แพ็กเกจ ${s.limits.label}`, { type: 'carousel', contents: [status, planCard('plus', paidNow === 'plus', o), planCard('pro', paidNow === 'pro', o)] });

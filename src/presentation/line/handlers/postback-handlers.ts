@@ -39,7 +39,7 @@ import {
   showWeekSummary,
 } from './views.ts';
 import { exportUserData } from './privacy.ts';
-import { scanPrompt, showPlans, showWealthPlan } from './views.ts';
+import { scanPrompt, showInvite, showPlans, showWealthPlan } from './views.ts';
 import { savedToGoalText } from '../flex/wealth.ts';
 import type { SaveResult } from '../../../application/services/wealth-service.ts';
 import { PLANS, PRICES } from '../../../domain/plans.ts';
@@ -315,6 +315,7 @@ export const postbackHandlers: Handlers = {
   // ── savings-first ──
   wealth_plan: (ctx) => showWealthPlan(ctx),
   scan: async () => scanPrompt(),
+  invite: (ctx) => showInvite(ctx),
   wealth_emergency: async (ctx) => {
     const { goal, created } = await ctx.deps.wealth.ensureEmergencyGoal(ctx.userId, ctx.today);
     return [mascotSays(created ? `สร้างเป้า "${goal.name}" เป้าหมาย ${formatBaht(goal.targetSatang)} (3 เท่าของค่าใช้จ่ายต่อเดือน) แล้ว! เริ่มเก็บทีละนิดก็ได้ 💪` : `มีเป้า "${goal.name}" อยู่แล้วน้า`, 'encouraging', [pb('🐷 เก็บเลย', 'goal_contribute', { id: goal.id }), pb('แผนการเงิน', 'wealth_plan')])];

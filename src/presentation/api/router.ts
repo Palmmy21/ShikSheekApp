@@ -17,7 +17,8 @@ import type { NotificationPrefs, Transaction } from '../../domain/entities/index
 import { formatBaht, parseBahtToSatang, type Satang } from '../../domain/money.ts';
 import { periodForDate, periodFromKey, previousPeriod } from '../../domain/period.ts';
 import { describeRuleThai } from '../../domain/recurrence.ts';
-import { PLAN_PITCH, PRICES } from '../../domain/plans.ts';
+import { PLAN_PITCH, PRICES, REFERRAL_ACTIVATION_ENTRIES, REFERRAL_REWARD_DAYS } from '../../domain/plans.ts';
+import { inviteLink, shareText } from '../line/flex/engagement.ts';
 import type { IdTokenVerifier } from '../../infrastructure/line/id-token.ts';
 import { redactUserId, type AppDeps } from '../line/context.ts';
 
@@ -95,7 +96,7 @@ const SettingsPatch = z.object({
   cycleStartDay: z.number().int().min(1).max(28).optional(),
   autoRecord: z.boolean().optional(),
   notifications: z
-    .object({ dailySummary: z.boolean(), weeklySummary: z.boolean(), monthlySummary: z.boolean(), billReminders: z.boolean(), budgetAlerts: z.boolean() })
+    .object({ dailySummary: z.boolean(), weeklySummary: z.boolean(), monthlySummary: z.boolean(), billReminders: z.boolean(), budgetAlerts: z.boolean(), streakReminders: z.boolean() })
     .partial()
     .optional(),
 });
@@ -335,6 +336,16 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
       const r = await deps.payments.check(userId, seg[2]!);
       if (r.status === 'not_found') throw new HttpError(404, 'not found');
       return json(200, { status: r.status });
+    }
+    // ── referral & streak ──
+    if (is('GET', 'referral')) {
+      const [info, s] = await Promise.all([deps.engagement.referralInfo(userId), deps.engagement.streak(userId)]);
+      return json(200, { ...info, link: inviteLink(info.code), shareText: shareText(info.code), rewardDays: REFERRAL_REWARD_DAYS, activationEntries: REFERRAL_ACTIVATION_ENTRIES, streak: s.days });
+    }
+    if (is('POST', 'referral', 'claim')) {
+      const b = await body(req, z.object({ code: z.string().max(12) }));
+      const r = await deps.engagement.claim(userId, b.code);
+      return json(r.status === 'ok' ? 200 : 409, r);
     }
     if (is('POST', 'plan', 'interest')) {
       const b = await body(req, z.object({ plan: z.enum(['plus', 'pro']) }));

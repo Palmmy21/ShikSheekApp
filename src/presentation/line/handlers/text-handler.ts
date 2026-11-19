@@ -17,6 +17,7 @@ import { defaultCategoryFor } from '../../../domain/entities/categories.ts';
 import { formatBaht } from '../../../domain/money.ts';
 import type { Message } from '../../../infrastructure/line/messages.ts';
 import { quickReply, text } from '../../../infrastructure/line/messages.ts';
+import { claimReply } from '../flex/engagement.ts';
 import type { FlowState, HandlerContext } from '../context.ts';
 import { pb } from '../flex/actions.ts';
 import { confirmGoalMessage } from '../flex/budgets-goals.ts';
@@ -42,6 +43,7 @@ import {
   showPlans,
   showWealthPlan,
   scanPrompt,
+  showInvite,
   showCategorySpend,
   showTodayList,
 } from './views.ts';
@@ -282,6 +284,12 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           return showWealthPlan(ctx);
         case 'scan':
           return scanPrompt();
+        case 'invite':
+          return showInvite(ctx);
+        case 'claim_code': {
+          const r = await deps.engagement.claim(userId, m.code);
+          return [claimReply(r.status, r.status === 'ok' ? r.referrerName : null)];
+        }
         case 'my_id':
           return [text(`LINE user ID ของคุณ (ใช้ตั้งค่าผู้ทดสอบ/ติดต่อทีมงาน):
 ${userId}`)];

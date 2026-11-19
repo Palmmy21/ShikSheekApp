@@ -8,6 +8,7 @@ import { webhookEventRepo } from './webhook-events.ts';
 import { categoryRuleRepo } from './category-rules.ts';
 import { planRepo } from './plans.ts';
 import { paymentRepo } from './payments.ts';
+import { engagementRepo } from './engagement.ts';
 
 export function createRepos(sql: Sql) {
   return {
@@ -23,6 +24,7 @@ export function createRepos(sql: Sql) {
     categoryRules: categoryRuleRepo(sql),
     plans: planRepo(sql),
     payments: paymentRepo(sql),
+    engagement: engagementRepo(sql),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;

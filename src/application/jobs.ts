@@ -19,8 +19,9 @@ import { showDaySummary, showMonthSummary, showWeekSummary } from '../presentati
 import { GENERATION_HORIZON_DAYS } from './services/fixed-cost-service.ts';
 import { sha256Hex } from './services/privacy-service.ts';
 import { renewalMessage } from '../presentation/line/flex/plans.ts';
+import { streakReminderMessage, winbackMessage } from '../presentation/line/flex/engagement.ts';
 
-export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'renewal_reminders' | 'rich_menu_sync' | 'cleanup';
+export type JobName = 'generate_occurrences' | 'bill_reminders' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'renewal_reminders' | 'rich_menu_sync' | 'streak_reminders' | 'winback' | 'cleanup';
 
 interface JobSpec {
   hour: number; // Bangkok
@@ -36,6 +37,8 @@ export const SCHEDULE: Record<JobName, JobSpec> = {
   weekly_summary: { hour: 20, windowHours: 3, weekday: 7 },
   daily_summary: { hour: 21, windowHours: 3 },
   renewal_reminders: { hour: 10, windowHours: 4 },
+  streak_reminders: { hour: 20, windowHours: 2 },
+  winback: { hour: 12, windowHours: 3 },
   rich_menu_sync: { hour: 0, windowHours: 24 }, // every run: trials/plans can end at any hour
 };
 
@@ -179,6 +182,30 @@ export const jobs: Record<JobName, (deps: AppDeps, now: Date) => Promise<JobRepo
     for (const s of ended) {
       if ((await deps.plans.planOf(s.userId, now)) !== 'free') continue; // still covered (e.g. renewed or trial)
       await sendOnce(deps, 'renewal_reminders', `${s.end.slice(0, 10)}:ended`, s.userId, async () => [renewalMessage(s.plan, s.end, true)], report);
+    }
+    return report;
+  },
+
+  /** 20:00: only users whose streak (≥ 2 days) breaks tonight. One push per user per day. */
+  async streak_reminders(deps, now) {
+    const today = bangkokToday(now);
+    const report: JobReport = { job: 'streak_reminders', sent: 0, skipped: 0, failed: 0 };
+    for (const userId of await deps.repos.engagement.listStreakRecipients()) {
+      const s = await deps.engagement.streak(userId);
+      if (!s.atRisk || s.days < 2) continue;
+      await sendOnce(deps, 'streak_reminders', today, userId, async () => [streakReminderMessage(s.days)], report);
+    }
+    return report;
+  },
+
+  /** Noon: one gentle nudge when the last entry was exactly 3 days ago (so at most once per lapse). */
+  async winback(deps) {
+    const report: JobReport = { job: 'winback', sent: 0, skipped: 0, failed: 0 };
+    for (const userId of await deps.repos.engagement.listStreakRecipients()) {
+      const s = await deps.engagement.streak(userId);
+      const a = await deps.repos.engagement.activity(userId, 30);
+      if (!s.lastActive || addDays(s.lastActive, 3) !== a.today) continue;
+      await sendOnce(deps, 'winback', s.lastActive, userId, async () => [winbackMessage()], report);
     }
     return report;
   },
