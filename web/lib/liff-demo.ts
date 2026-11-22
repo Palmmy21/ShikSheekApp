@@ -87,12 +87,62 @@ const ROUTES: Record<string, unknown> = {
     { id: 'g1', name: 'เที่ยวญี่ปุ่น', target: m(3000000), saved: m(900000), monthlyReserve: m(300000), progressPercent: 30, isReached: false, periodsToGoal: 7 },
     { id: 'g2', name: 'เงินสำรองฉุกเฉิน', target: m(10000000), saved: m(2500000), monthlyReserve: m(0), progressPercent: 25, isReached: false, periodsToGoal: null },
   ],
+  '/dreams': {
+    templates: [
+      ['home', 'บ้านหลังแรก', '🏠', 'planning', 30_000_000, 5, 'เงินดาวน์ + ค่าโอน ประมาณ 10–15% ของราคาบ้าน'],
+      ['travel', 'เที่ยวต่างประเทศ', '✈️', 'excited', 8_000_000, 1, 'ตั๋ว ที่พัก กิน เที่ยว'],
+      ['retire', 'เกษียณสบาย', '🌴', 'sleepy', 300_000_000, 25, 'ค่าใช้จ่ายต่อเดือนหลังเกษียณ × 12 × จำนวนปี'],
+      ['business', 'เปิดร้านของตัวเอง', '🏪', 'smart', 20_000_000, 3, 'ค่าตกแต่ง อุปกรณ์ สต็อกแรก'],
+      ['car', 'รถคันแรก', '🚗', 'happy', 15_000_000, 2, 'เงินดาวน์ ประกันปีแรก'],
+      ['education', 'ทุนการศึกษา', '🎓', 'smart', 30_000_000, 5, 'ค่าเทอม + ค่าครองชีพ'],
+      ['wedding', 'งานแต่งในฝัน', '💍', 'celebrating', 30_000_000, 2, 'สินสอด งานเลี้ยง ฮันนีมูน'],
+      ['freedom', 'อิสรภาพทางการเงิน', '🦅', 'proud', 100_000_000, 10, 'เงินก้อนที่ทำให้เลือกชีวิตได้'],
+      ['custom', 'ความฝันของฉัน', '⭐', 'encouraging', 5_000_000, 1, 'ตั้งชื่อเองได้เลย'],
+    ].map(([kind, label, emoji, mascot, s, y, hint]) => ({ kind, label, emoji, mascot, suggested: m(s as number), suggestedYears: y, hint })),
+    items: [
+      {
+        id: 'd1', kind: 'home', name: 'คอนโดใกล้ที่ทำงาน', emoji: '🏠', mascot: 'planning', target: m(30_000_000), saved: m(8_400_000), remaining: m(21_600_000),
+        targetDate: '2030-11-22', progressPercent: 28, monthsLeft: 48, monthlyNeeded: m(450_000), status: 'ahead', milestone: 25,
+        next: { percent: 50, amountToGo: m(6_600_000) }, coach: { mascot: 'proud', headline: 'นำหน้าแผนไปแล้ว! 🚀', body: 'เก่งมาก ตอนนี้เกินแผนแล้ว อีก ฿66,000 ถึงด่าน 50% เดือนละ ฿4,500 ก็สบายๆ' },
+        reserving: true, illustrations: [{ ratePercent: 2, monthly: m(410_000), savesPerMonth: m(40_000) }, { ratePercent: 5, monthly: m(360_000), savesPerMonth: m(90_000) }],
+      },
+      {
+        id: 'd2', kind: 'travel', name: 'เที่ยวญี่ปุ่นกับแม่', emoji: '✈️', mascot: 'excited', target: m(6_000_000), saved: m(900_000), remaining: m(5_100_000),
+        targetDate: '2027-10-01', progressPercent: 15, monthsLeft: 10, monthlyNeeded: m(510_000), status: 'behind', milestone: 10,
+        next: { percent: 25, amountToGo: m(600_000) }, coach: { mascot: 'encouraging', headline: 'ช้ากว่าแผนนิดหน่อย ไม่เป็นไรนะ', body: 'เดือนนี้เก็บให้ได้ ฿5,100 ก็ยังไปถึงทันเวลา ค่อยๆ ไปด้วยกัน ชิกชิกอยู่ข้างๆ เสมอ 💪' },
+        reserving: false, illustrations: [],
+      },
+    ],
+  },
+  '/reports/statement': {
+    name: 'ปาล์ม', generatedOn: today, range: { start: '2026-11-01', end: today }, days: 18,
+    income: m(2500000), expense: m(432000), saving: m(110100), net: m(1957900), keptPercent: 82,
+    months: [{ key: '2026-11', income: m(2500000), expense: m(432000), saving: m(110100), net: m(1957900) }],
+    incomeByCategory: [{ id: 'salary', label: 'เงินเดือน', amount: m(2500000), count: 1, percent: 100 }],
+    expenseByCategory: [{ id: 'food', label: 'อาหาร', amount: m(186000), count: 21, percent: 43 }, { id: 'transport', label: 'เดินทาง', amount: m(95000), count: 6, percent: 21 }, { id: 'bills', label: 'บิล/ค่าบริการ', amount: m(59900), count: 1, percent: 13 }],
+    rows: txns.map((t) => ({ date: t.date, type: t.type, category: t.category.label, note: t.note, amount: t.amount })),
+  },
 };
 
-export async function demoApi<T>(path: string, method: string): Promise<T> {
+/** Demo calculator: same monthly-compounding maths as the API, client-side. */
+function demoCompound(body: { monthly?: string; rateBp?: number; years?: number }) {
+  const monthly = Math.round(Number(body.monthly ?? 0) * 100);
+  const r = (body.rateBp ?? 0) / 10_000 / 12;
+  const series = [];
+  let bal = 0;
+  for (let y = 0; y <= (body.years ?? 1); y++) {
+    series.push({ year: y, deposited: m(monthly * 12 * y), balance: m(Math.round(bal)) });
+    for (let i = 0; i < 12; i++) bal = bal * (1 + r) + monthly;
+  }
+  const last = series.at(-1)!;
+  return { deposited: last.deposited, balance: last.balance, growth: m(Math.max(0, last.balance.satang - last.deposited.satang)), series };
+}
+
+export async function demoApi<T>(path: string, method: string, body?: unknown): Promise<T> {
   await new Promise((r) => setTimeout(r, 250));
-  if (method !== 'GET') return {} as T;
   const route = path.split('?')[0]!;
+  if (method === 'POST' && route === '/learn/compound') return demoCompound(body as never) as T;
+  if (method !== 'GET') return {} as T;
   if (route === '/transactions') return { items: txns, hasMore: false, page: 0 } as T;
   return (ROUTES[route] ?? {}) as T;
 }

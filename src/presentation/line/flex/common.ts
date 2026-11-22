@@ -81,6 +81,8 @@ export function helpMessage(): FlexMessage {
         vbox([example('กินข้าว 65'), example('ซื้อกาแฟ 80 เมื่อวาน'), example('ได้เงินเดือน 25000')], { spacing: 'xs' }),
         txt('ถามได้เลย', { weight: 'bold', margin: 'md' }),
         vbox([example('วันนี้ใช้ไปเท่าไหร่'), example('เดือนนี้เหลือเงินเท่าไหร่'), example('พรุ่งนี้มีค่าอะไรต้องจ่ายบ้าง')], { spacing: 'xs' }),
+        txt('ใช้อะไรได้อีก', { weight: 'bold', margin: 'md' }),
+        vbox([example('แผนชีวิต'), example('ส่งออกรายงาน'), example('ความรู้ลงทุน'), example('แชร์สตอรี่')], { spacing: 'xs' }),
         txt('ตั้งค่าใช้จ่ายประจำ: กดเมนู "ค่าใช้จ่ายประจำ" แล้วพิมพ์ เช่น "ค่าเน็ต 599 ทุกวันที่ 5"', { size: 'xs', color: BRAND.muted, margin: 'md' }),
       ],
       footer: [

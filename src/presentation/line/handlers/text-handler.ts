@@ -18,6 +18,7 @@ import { formatBaht } from '../../../domain/money.ts';
 import type { Message } from '../../../infrastructure/line/messages.ts';
 import { quickReply, text } from '../../../infrastructure/line/messages.ts';
 import { claimReply, storyMessage } from '../flex/engagement.ts';
+import { dreamsMessage, learnLinkMessage, reportLinkMessage } from '../flex/dreams.ts';
 import type { FlowState, HandlerContext } from '../context.ts';
 import { pb } from '../flex/actions.ts';
 import { confirmGoalMessage } from '../flex/budgets-goals.ts';
@@ -286,6 +287,12 @@ async function handleMessageLevel(ctx: HandlerContext, m: MessageParse): Promise
           return scanPrompt();
         case 'story':
           return [storyMessage()];
+        case 'dreams':
+          return [dreamsMessage(await deps.dreams.list(userId, ctx.today))];
+        case 'report':
+          return [reportLinkMessage()];
+        case 'learn':
+          return [learnLinkMessage()];
         case 'invite':
           return showInvite(ctx);
         case 'claim_code': {

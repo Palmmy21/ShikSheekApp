@@ -1,5 +1,5 @@
 import type { LocalDate } from '../../../domain/dates.ts';
-import type { Budget, SavingsGoal, SavingsGoalStatus } from '../../../domain/entities/index.ts';
+import type { Budget, DreamKind, SavingsGoal, SavingsGoalStatus } from '../../../domain/entities/index.ts';
 import { toSafeInt, type Sql } from '../sql.ts';
 
 interface BudgetRow {
@@ -64,9 +64,12 @@ interface GoalRow {
   target_satang: unknown;
   monthly_reserve_satang: unknown;
   target_date: string | null;
+  dream: DreamKind | null;
+  created_on: string;
   status: SavingsGoalStatus;
 }
-const GOAL_COLUMNS = 'id, user_id, name, target_satang, monthly_reserve_satang, target_date::text as target_date, status';
+const GOAL_COLUMNS = `id, user_id, name, target_satang, monthly_reserve_satang, target_date::text as target_date, status, dream,
+  to_char((created_at at time zone 'UTC') + interval '7 hours', 'YYYY-MM-DD') as created_on`;
 const mapGoal = (r: GoalRow): SavingsGoal => ({
   id: r.id,
   userId: r.user_id,
@@ -74,16 +77,18 @@ const mapGoal = (r: GoalRow): SavingsGoal => ({
   targetSatang: toSafeInt(r.target_satang),
   monthlyReserveSatang: toSafeInt(r.monthly_reserve_satang),
   targetDate: r.target_date,
+  dream: r.dream,
+  createdOn: r.created_on,
   status: r.status,
 });
 
 export function goalRepo(sql: Sql) {
   return {
-    async insert(g: Omit<SavingsGoal, 'id' | 'status'>): Promise<SavingsGoal> {
+    async insert(g: Omit<SavingsGoal, 'id' | 'status' | 'createdOn'>): Promise<SavingsGoal> {
       const rows = await sql.query<GoalRow>(
-        `insert into savings_goals (user_id, name, target_satang, monthly_reserve_satang, target_date)
-         values ($1, $2, $3, $4, $5) returning ${GOAL_COLUMNS}`,
-        [g.userId, g.name, g.targetSatang, g.monthlyReserveSatang, g.targetDate],
+        `insert into savings_goals (user_id, name, target_satang, monthly_reserve_satang, target_date, dream)
+         values ($1, $2, $3, $4, $5, $6) returning ${GOAL_COLUMNS}`,
+        [g.userId, g.name, g.targetSatang, g.monthlyReserveSatang, g.targetDate, g.dream ?? null],
       );
       return mapGoal(rows[0]!);
     },
@@ -98,11 +103,12 @@ export function goalRepo(sql: Sql) {
       );
       return rows.map(mapGoal);
     },
-    async update(userId: string, id: string, patch: { targetSatang?: number; monthlyReserveSatang?: number }): Promise<boolean> {
+    async update(userId: string, id: string, patch: { targetSatang?: number; monthlyReserveSatang?: number; targetDate?: LocalDate }): Promise<boolean> {
       const rows = await sql.query(
-        `update savings_goals set target_satang = coalesce($3::bigint, target_satang), monthly_reserve_satang = coalesce($4::bigint, monthly_reserve_satang)
+        `update savings_goals set target_satang = coalesce($3::bigint, target_satang), monthly_reserve_satang = coalesce($4::bigint, monthly_reserve_satang),
+           target_date = coalesce($5::date, target_date)
          where user_id = $1 and id = $2 returning 1`,
-        [userId, id, patch.targetSatang ?? null, patch.monthlyReserveSatang ?? null],
+        [userId, id, patch.targetSatang ?? null, patch.monthlyReserveSatang ?? null, patch.targetDate ?? null],
       );
       return rows.length === 1;
     },

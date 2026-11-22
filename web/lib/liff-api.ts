@@ -76,6 +76,8 @@ export interface GoalItem {
   progressPercent: number;
   isReached: boolean;
   periodsToGoal: number | null;
+  /** set when this goal is a life-plan dream (shown in its own section) */
+  dream?: string | null;
 }
 export interface MonthReport {
   period: { key: string; start: string; end: string; previousKey: string };
@@ -163,7 +165,7 @@ function relogin(): never {
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   if (DEMO) {
     const { demoApi } = await import('./liff-demo');
-    return demoApi<T>(path, init.method ?? 'GET');
+    return demoApi<T>(path, init.method ?? 'GET', init.body);
   }
   await initLiff();
   const token = liff.getIDToken();
@@ -227,4 +229,80 @@ export function inLineClient(): boolean {
 export function openExternal(url: string): void {
   if (!DEMO && liff.isInClient()) liff.openWindow({ url, external: true });
   else window.open(url, '_blank', 'noopener');
+}
+
+// ── life plan (dreams) ──
+export type DreamKind = 'home' | 'travel' | 'retire' | 'business' | 'car' | 'education' | 'wedding' | 'freedom' | 'custom';
+export interface DreamTemplate {
+  kind: DreamKind;
+  label: string;
+  emoji: string;
+  mascot: string;
+  suggested: Money;
+  suggestedYears: number;
+  hint: string;
+}
+export interface DreamItem {
+  id: string;
+  kind: DreamKind;
+  name: string;
+  emoji: string;
+  mascot: string;
+  target: Money;
+  saved: Money;
+  remaining: Money;
+  targetDate: string;
+  progressPercent: number;
+  monthsLeft: number;
+  monthlyNeeded: Money;
+  status: 'reached' | 'starting' | 'ahead' | 'on_track' | 'behind' | 'overdue';
+  milestone: number;
+  next: { percent: number; amountToGo: Money } | null;
+  coach: { mascot: string; headline: string; body: string };
+  reserving: boolean;
+  illustrations: Array<{ ratePercent: number; monthly: Money; savesPerMonth: Money }>;
+}
+export interface DreamsResponse {
+  templates: DreamTemplate[];
+  items: DreamItem[];
+}
+
+// ── statement report ──
+export interface Statement {
+  name: string | null;
+  generatedOn: string;
+  range: { start: string; end: string };
+  days: number;
+  income: Money;
+  expense: Money;
+  saving: Money;
+  net: Money;
+  keptPercent: number | null;
+  months: Array<{ key: string; income: Money; expense: Money; saving: Money; net: Money }>;
+  incomeByCategory: Array<{ id: string; label: string; amount: Money; count: number; percent: number }>;
+  expenseByCategory: Array<{ id: string; label: string; amount: Money; count: number; percent: number }>;
+  rows: Array<{ date: string; type: 'income' | 'expense' | 'saving'; category: string; note: string | null; amount: Money }>;
+}
+
+// ── investing basics calculator ──
+export interface CompoundResult {
+  deposited: Money;
+  balance: Money;
+  growth: Money;
+  series: Array<{ year: number; deposited: Money; balance: Money }>;
+}
+
+/** Raw text response (e.g. CSV) with the same auth as `api()`. */
+export async function apiText(path: string): Promise<string> {
+  if (DEMO) return '﻿รายงานตัวอย่าง (โหมดสาธิต),\r\n';
+  await initLiff();
+  const token = liff.getIDToken();
+  if (!token || tokenExpired(token)) relogin();
+  const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) relogin();
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, (data as { error?: string } | null)?.error ?? 'เกิดข้อผิดพลาด');
+  }
+  return res.text();
 }

@@ -2,6 +2,7 @@
  * Data export (one-time download link) and complete deletion.
  */
 import { getCategory } from '../../domain/entities/categories.ts';
+import { csvCell } from '../../domain/calculations/statement.ts';
 import type { Transaction } from '../../domain/entities/index.ts';
 import { formatSatang } from '../../domain/money.ts';
 import { createRepos } from '../../infrastructure/db/repositories/index.ts';
@@ -20,10 +21,6 @@ export async function sha256Hex(input: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function csvCell(v: string | number | null): string {
-  const s = v === null ? '' : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export function transactionsToCsv(txns: Transaction[]): string {
   const header = ['date', 'type', 'amount_baht', 'category', 'note', 'source'];

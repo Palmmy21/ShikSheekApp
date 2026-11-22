@@ -100,6 +100,7 @@ export interface Budget {
 export const TOTAL_BUDGET_CATEGORY = 'total';
 
 export type SavingsGoalStatus = 'active' | 'completed' | 'archived';
+export type DreamKind = 'home' | 'travel' | 'retire' | 'business' | 'car' | 'education' | 'wedding' | 'freedom' | 'custom';
 
 export interface SavingsGoal {
   id: string;
@@ -109,5 +110,9 @@ export interface SavingsGoal {
   /** Amount the user wants set aside each period; reduces available-to-spend until contributed. */
   monthlyReserveSatang: Satang;
   targetDate: LocalDate | null;
+  /** set for life-plan dreams ("อนาคตที่อยากมี"); null for plain savings goals */
+  dream?: DreamKind | null;
+  /** Bangkok date the goal was created (for on-track maths) */
+  createdOn?: LocalDate;
   status: SavingsGoalStatus;
 }

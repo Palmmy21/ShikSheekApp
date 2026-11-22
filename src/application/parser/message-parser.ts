@@ -34,6 +34,9 @@ export type MessageParse =
   | { kind: 'command'; command: 'scan' }
   | { kind: 'command'; command: 'invite' }
   | { kind: 'command'; command: 'story' }
+  | { kind: 'command'; command: 'dreams' }
+  | { kind: 'command'; command: 'report' }
+  | { kind: 'command'; command: 'learn' }
   | { kind: 'command'; command: 'claim_code'; code: string }
   | { kind: 'extra_query'; query: 'yesterday_spent' | 'last_month_summary' | 'today_list' }
   | { kind: 'extra_query'; query: 'category_spend'; categoryId: string };
@@ -73,6 +76,9 @@ function parseCommand(text: string): MessageParse | null {
   if (/^(แพ็[กค]เกจ(ของฉัน)?|แพคเกจ|สมาชิก|อัปเกรด|อัพเกรด|plan|plans|plus|pro|ราคา|ค่าสมาชิก)$/i.test(text)) return { kind: 'command', command: 'plans' };
   if (/^(ไอดีของฉัน|user\s*id|my\s*id)$/i.test(text)) return { kind: 'command', command: 'my_id' };
   if (/^(ชวนเพื่อน|เชิญเพื่อน|แนะนำเพื่อน|บอกต่อ|โค้ดของฉัน|โค้ดชวน|ลิงก์ชวน|รับ\s*plus\s*ฟรี|invite)$/i.test(text)) return { kind: 'command', command: 'invite' };
+  if (/^(แผนชีวิต|อนาคต|อนาคตที่อยากมี|ความฝัน|ความฝันของฉัน|ตั้งความฝัน|เป้าหมายชีวิต|dreams?)$/i.test(text)) return { kind: 'command', command: 'dreams' };
+  if (/^(ส่งออก\s*(รายงาน|pdf|excel|เอ็กเซล)|(ขอ|ดาวน์โหลด|โหลด|ออก)\s*รายงาน|รายงาน\s*(pdf|excel|รายรับรายจ่าย|ประจำปี|ทั้งปี)|statement)$/i.test(text)) return { kind: 'command', command: 'report' };
+  if (/^(ความรู้\s*(การ)?ลงทุน|สอน\s*ลงทุน|เรียน\s*ลงทุน|ห้องเรียน\s*ลงทุน|ลงทุน(เบื้องต้น|มือใหม่)?|ดอกเบี้ยทบต้น|dca)$/i.test(text)) return { kind: 'command', command: 'learn' };
   if (/^(แชร์\s*(ลง)?\s*(สตอรี่|สตอรี|ไอจี|ig|story)|การ์ด\s*(สตอรี่|สตอรี|แชร์)|ลง\s*(สตอรี่|สตอรี|ไอจี|ig)|สตอรี่|สตอรี|สรุปลงไอจี|wrapped|story)$/i.test(text)) return { kind: 'command', command: 'story' };
   const code = /^(?:ใช้\s*)?(?:โค้ด|code|ref)\s*[:：]?\s*([A-Za-z0-9]{6})$/i.exec(text);
   if (code) return { kind: 'command', command: 'claim_code', code: code[1]!.toUpperCase() };

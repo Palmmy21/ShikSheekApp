@@ -12,6 +12,9 @@ import { CategoryIcon } from '@/components/icons';
 import { CategoryBars, DailyBars, Progress } from './Charts';
 import { Sheet, TxnSheet, type TxnInput } from './TxnSheet';
 import { StoryStudio } from './StoryStudio';
+import { DreamsSection } from './LifePlan';
+import { LearnRoom } from './Learn';
+import { ReportScreen } from './Report';
 
 type Tab = 'home' | 'txns' | 'bills' | 'plans' | 'settings';
 const TAB_IDS: readonly Tab[] = ['home', 'txns', 'bills', 'plans', 'settings'];
@@ -36,9 +39,21 @@ function tabParam(): string | null {
   return t;
 }
 
-/** ?tab=story (from the chat's "แชร์ลงสตอรี่" button) opens the story-card studio over Home. */
-function storyFromUrl(): boolean {
-  return tabParam() === 'story';
+type Overlay = 'story' | 'report' | 'learn';
+/** ?tab=story|report|learn (from chat buttons) opens that full-screen view over the app. */
+function overlayFromUrl(): Overlay | null {
+  const t = tabParam();
+  return t === 'story' || t === 'report' || t === 'learn' ? t : null;
+}
+
+/** ?dream=new|<id> (from the chat coach): open the dream creator or "save into this dream". */
+function dreamFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search);
+  let d = q.get('dream');
+  const state = q.get('liff.state');
+  if (!d && state) d = new URLSearchParams(state.replace(/^[^?]*\?/, '')).get('dream');
+  return d && (d === 'new' || /^[0-9a-f-]{36}$/i.test(d)) ? d : null;
 }
 
 function tabFromUrl(): Tab | null {
@@ -71,7 +86,8 @@ export default function LiffApp() {
   const [tab, setTab] = useState<Tab>(() => tabFromUrl() ?? 'home');
   const [version, setVersion] = useState(0);
   const [sheet, setSheet] = useState<{ open: boolean; editing: Txn | null }>({ open: false, editing: null });
-  const [story, setStory] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const [dreamLink, setDreamLink] = useState<string | null>(null);
   const toast = useToast();
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -81,7 +97,9 @@ export default function LiffApp() {
         await initLiff();
         const fromUrl = tabFromUrl();
         if (fromUrl) setTab(fromUrl);
-        if (storyFromUrl()) setStory(true);
+        setOverlay(overlayFromUrl());
+        const dl = dreamFromUrl();
+        if (dl) { setDreamLink(dl); setTab('plans'); }
         // invited via ?ref=CODE → record the referral once (server validates everything)
         const ref = refFromUrl();
         if (ref) {
@@ -140,7 +158,7 @@ export default function LiffApp() {
   }
 
   const current = TABS.find((t) => t.id === tab)!;
-  const props = { me, categories, version, refresh, toast: toast.show, openEdit: (t: Txn) => setSheet({ open: true, editing: t }), openStory: () => setStory(true) };
+  const props = { me, categories, version, refresh, toast: toast.show, openEdit: (t: Txn) => setSheet({ open: true, editing: t }), openStory: () => setOverlay('story'), openReport: () => setOverlay('report'), openLearn: () => setOverlay('learn'), dreamLink };
   return (
     <div className="lf">
       <header className="lf-top">
@@ -180,7 +198,9 @@ export default function LiffApp() {
         ))}
       </nav>
 
-      {story && <StoryStudio onClose={() => setStory(false)} toast={toast.show} />}
+      {overlay === 'story' && <StoryStudio onClose={() => setOverlay(null)} toast={toast.show} />}
+      {overlay === 'report' && <ReportScreen today={me.today} onClose={() => setOverlay(null)} />}
+      {overlay === 'learn' && <LearnRoom onClose={() => setOverlay(null)} />}
 
       <TxnSheet open={sheet.open} editing={sheet.editing} onClose={() => setSheet({ open: false, editing: null })} categories={categories} today={me.today} onSubmit={saveTxn} onDelete={deleteTxn} />
 
@@ -213,6 +233,9 @@ interface ScreenProps {
   toast: (text: string, undo?: () => void) => void;
   openEdit: (t: Txn) => void;
   openStory: () => void;
+  openReport: () => void;
+  openLearn: () => void;
+  dreamLink: string | null;
 }
 
 function useData<T>(path: string | null, version: number) {
@@ -305,7 +328,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'po
 }
 
 // ── TRANSACTIONS ──
-function TxnScreen({ version, openEdit, categories }: ScreenProps) {
+function TxnScreen({ version, openEdit, categories, openReport }: ScreenProps) {
   const [q, setQ] = useState('');
   const [type, setType] = useState<'' | 'expense' | 'income'>('');
   const [cat, setCat] = useState('');
@@ -319,6 +342,7 @@ function TxnScreen({ version, openEdit, categories }: ScreenProps) {
 
   return (
     <>
+      <button className="report-cta" onClick={openReport}>📄 ส่งออกรายงาน PDF / Excel</button>
       <div className="search">
         <Search size={18} aria-hidden="true" />
         <input type="search" placeholder="ค้นหารายการ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
@@ -474,9 +498,10 @@ function FixedCostSheet({ open, onClose, categories, today, onCreate }: { open: 
 }
 
 // ── BUDGETS & GOALS ──
-function PlansScreen({ version, refresh, toast, categories }: ScreenProps) {
+function PlansScreen({ me, version, refresh, toast, categories, openLearn, dreamLink }: ScreenProps) {
   const { data: b } = useData<{ period: { start: string; end: string }; items: BudgetItem[] }>('/budgets', version);
-  const { data: goals } = useData<GoalItem[]>('/goals', version);
+  const { data: allGoals } = useData<GoalItem[]>('/goals', version);
+  const goals = allGoals?.filter((g) => !g.dream) ?? null;
   const [budgetSheet, setBudgetSheet] = useState(false);
   const [goalSheet, setGoalSheet] = useState(false);
   const [contrib, setContrib] = useState<GoalItem | null>(null);
@@ -487,6 +512,8 @@ function PlansScreen({ version, refresh, toast, categories }: ScreenProps) {
 
   return (
     <>
+      <DreamsSection version={version} today={me.today} refresh={refresh} toast={toast} openDream={dreamLink} />
+
       <section className="card">
         <div className="card__head"><h3>งบประมาณ</h3><button className="link" onClick={() => setBudgetSheet(true)}><Plus size={15} /> ตั้งงบ</button></div>
         {!b ? <Loading /> : b.items.length === 0 ? <p className="muted small">ยังไม่ได้ตั้งงบ ลองตั้งงบอาหารเดือนละ 6,000 ดูไหม</p> : (
@@ -529,6 +556,12 @@ function PlansScreen({ version, refresh, toast, categories }: ScreenProps) {
           </ul>
         )}
       </section>
+
+      <button className="learn-cta" onClick={openLearn}>
+        <img src="/mascot/smart.png" alt="" width={48} height={48} />
+        <span><strong>📚 ห้องเรียนลงทุน</strong><small>มีเงินเหลือเก็บแล้ว ต่อยอดยังไง · ดอกเบี้ยทบต้น DCA กระจายความเสี่ยง</small></span>
+        <ChevronRight size={20} />
+      </button>
 
       <AmountSheet open={budgetSheet} title="ตั้งงบรายเดือน" withCategory={[{ id: 'total', label: 'งบรวมทั้งเดือน', emoji: '', kind: 'expense' }, ...categories.filter((c) => c.kind === 'expense')]} onClose={() => setBudgetSheet(false)} onSubmit={(amount, cat) => act(() => api(`/budgets/${cat}`, { method: 'PUT', body: { limit: amount } }), 'ตั้งงบแล้ว')} />
       <AmountSheet open={!!contrib} title={`ออมเข้า ${contrib?.name ?? ''}`} onClose={() => setContrib(null)} onSubmit={(amount) => act(() => api(`/goals/${contrib!.id}/contribute`, { method: 'POST', body: { amount } }), 'ออมแล้ว')} />

@@ -14,6 +14,7 @@ import { createRichMenuSync } from './application/services/rich-menu-sync.ts';
 import { createWealthService } from './application/services/wealth-service.ts';
 import { createEngagementService } from './application/services/engagement-service.ts';
 import { createStoryService } from './application/services/story-service.ts';
+import { createDreamService } from './application/services/dream-service.ts';
 import { createFinanceService } from './application/services/finance-service.ts';
 import { createFixedCostService } from './application/services/fixed-cost-service.ts';
 import { createTransactionService } from './application/services/transaction-service.ts';
@@ -73,6 +74,7 @@ export function createAppDeps(
     wealth: createWealthService(repos, finance, plans),
     engagement,
     story: createStoryService(repos, finance, engagement, plans),
+    dreams: createDreamService(repos, finance, plans),
     richMenus: createRichMenuSync(sql, line, plans, log),
     ...(gateway ? { payments: createPaymentService(repos, gateway, { returnUrl: config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid', cancelUrl: `${config.PAYMENT_RETURN_URL ?? 'https://shiksheek.vercel.app/paid'}?cancelled=1` }, clock, { allowedUsers: overrides.gateway || config.STRIPE_SECRET_KEY?.includes('_live_') ? null : new Set((config.PAYMENT_TEST_USERS ?? '').split(',').map((u) => u.trim()).filter(Boolean)) }) } : {}),
     personality,

@@ -11,7 +11,7 @@ import { validateDraft, ValidationError } from '../../application/services/trans
 import { PlanLimitError } from '../../application/services/entitlement-service.ts';
 import { computeBudgetStatuses } from '../../domain/calculations/budget.ts';
 import { dailyExpenseSeries, expenseByCategoryMap } from '../../domain/calculations/summary.ts';
-import { bangkokToday, type LocalDate } from '../../domain/dates.ts';
+import { bangkokToday, isValidLocalDate, type LocalDate } from '../../domain/dates.ts';
 import { CATEGORIES, getCategory } from '../../domain/entities/categories.ts';
 import type { NotificationPrefs, Transaction } from '../../domain/entities/index.ts';
 import { formatBaht, parseBahtToSatang, type Satang } from '../../domain/money.ts';
@@ -20,6 +20,9 @@ import { describeRuleThai } from '../../domain/recurrence.ts';
 import { PLAN_PITCH, PRICES, REFERRAL_ACTIVATION_ENTRIES, REFERRAL_REWARD_DAYS } from '../../domain/plans.ts';
 import { inviteLink, shareText } from '../line/flex/engagement.ts';
 import { STORY_CARD_KINDS, type StoryCardKind } from '../../domain/calculations/story.ts';
+import { DREAM_KINDS, DREAM_TEMPLATES, growthSeries } from '../../domain/calculations/dreams.ts';
+import { buildStatement, statementToCsv, validateStatementRange } from '../../domain/calculations/statement.ts';
+import type { DreamView } from '../../application/services/dream-service.ts';
 import type { IdTokenVerifier } from '../../infrastructure/line/id-token.ts';
 import { redactUserId, type AppDeps } from '../line/context.ts';
 
@@ -91,6 +94,9 @@ const FixedCostCreate = z.object({
   remindDaysBefore: z.number().int().min(0).max(14).default(1),
 });
 const BudgetPut = z.object({ limit: bahtText });
+const DreamCreate = z.object({ kind: z.enum(DREAM_KINDS), name: z.string().trim().max(60).nullable().optional(), target: bahtText, targetDate: date, reserve: z.boolean().default(true) });
+const DreamPatch = z.object({ target: bahtText.optional(), targetDate: date.optional(), reserve: z.boolean().optional() });
+const CompoundBody = z.object({ start: bahtText.optional(), monthly: bahtText, rateBp: z.number().int().min(0).max(1500), years: z.number().int().min(1).max(40) });
 const GoalCreate = z.object({ name: z.string().trim().min(1).max(60), target: bahtText, monthlyReserve: z.string().max(20).optional() });
 const AmountBody = z.object({ amount: bahtText.optional() });
 const SettingsPatch = z.object({
@@ -296,6 +302,7 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
         progressPercent: Math.floor(g.progressBasisPoints / 100),
         isReached: g.isReached,
         periodsToGoal: g.periodsToGoal,
+        dream: g.goal.dream ?? null,
       })));
     }
     if (is('POST', 'goals')) {
@@ -348,6 +355,71 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
       const r = await deps.engagement.claim(userId, b.code);
       return json(r.status === 'ok' ? 200 : 409, r);
     }
+    // ── life plan (dreams) ──
+    if (is('GET', 'dreams')) {
+      const items = await deps.dreams.list(userId, today);
+      return json(200, {
+        templates: DREAM_TEMPLATES.map((t) => ({ kind: t.kind, label: t.label, emoji: t.emoji, mascot: t.mascot, suggested: money(t.suggestedSatang), suggestedYears: t.suggestedYears, hint: t.hint })),
+        items: items.map(dreamJson),
+      });
+    }
+    if (is('POST', 'dreams')) {
+      const b = await body(req, DreamCreate);
+      const g = await deps.dreams.create(userId, today, { kind: b.kind, name: b.name ?? null, targetSatang: b.target, targetDate: b.targetDate, reserve: b.reserve });
+      return json(201, { id: g.id });
+    }
+    if (is('PATCH', 'dreams', '*')) {
+      const b = await body(req, DreamPatch);
+      const done = await deps.dreams.adjust(userId, today, seg[1]!, { ...(b.target !== undefined ? { targetSatang: b.target } : {}), ...(b.targetDate ? { targetDate: b.targetDate } : {}), ...(b.reserve !== undefined ? { reserve: b.reserve } : {}) });
+      return ok(done);
+    }
+
+    // ── investing basics: compound-growth calculator (education, assumed rate) ──
+    if (is('POST', 'learn', 'compound')) {
+      const b = await body(req, CompoundBody);
+      const series = growthSeries(b.start ?? 0, b.monthly, b.rateBp, b.years);
+      const last = series.at(-1)!;
+      return json(200, {
+        deposited: money(last.depositedSatang),
+        balance: money(last.balanceSatang),
+        growth: money(Math.max(0, last.balanceSatang - last.depositedSatang)),
+        series: series.map((p) => ({ year: p.year, deposited: money(p.depositedSatang), balance: money(p.balanceSatang) })),
+      });
+    }
+
+    // ── statement report (PDF/print + Excel) ──
+    if (is('GET', 'reports', 'statement') || is('GET', 'reports', 'statement.csv')) {
+      const from = url.searchParams.get('from') ?? '';
+      const to = url.searchParams.get('to') ?? '';
+      if (!isValidLocalDate(from) || !isValidLocalDate(to)) throw new HttpError(422, 'ช่วงวันที่ไม่ถูกต้อง');
+      const bad = validateStatementRange(from, to);
+      if (bad) throw new HttpError(422, bad);
+      const user = (await deps.repos.users.get(userId))!;
+      await deps.plans.assertHistory(userId, periodsBack(periodForDate(today, user.cycleStartDay).key, periodForDate(from, user.cycleStartDay).key));
+      const st = buildStatement(await deps.repos.transactions.listByRange(userId, from, to), { start: from, end: to });
+      if (seg[1] === 'statement.csv') {
+        return new Response(statementToCsv(st, { name: user.displayName, generatedOn: today }), {
+          status: 200,
+          headers: { ...cors, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="shiksheek-report-${from}-${to}.csv"`, 'cache-control': 'no-store' },
+        });
+      }
+      return json(200, {
+        name: user.displayName,
+        generatedOn: today,
+        range: st.range,
+        days: st.days,
+        income: money(st.incomeSatang),
+        expense: money(st.expenseSatang),
+        saving: money(st.savingSatang),
+        net: money(st.netSatang),
+        keptPercent: st.keptRateBp === null ? null : Math.floor(st.keptRateBp / 100),
+        months: st.months.map((mo) => ({ key: mo.key, income: money(mo.incomeSatang), expense: money(mo.expenseSatang), saving: money(mo.savingSatang), net: money(mo.netSatang) })),
+        incomeByCategory: st.incomeByCategory.map(catJson),
+        expenseByCategory: st.expenseByCategory.map(catJson),
+        rows: st.rows.map((r) => ({ date: r.date, type: r.type, category: r.categoryLabel, note: r.note, amount: money(r.amountSatang) })),
+      });
+    }
+
     // ── story cards (share to IG/FB stories) ──
     if (is('GET', 'story')) return json(200, await deps.story.deck(userId, today));
     if (is('POST', 'story', 'shared')) {
@@ -436,5 +508,33 @@ function budgetJson(s: import('../../domain/calculations/budget.ts').BudgetStatu
     remaining: money(s.remainingSatang),
     percent: Math.floor(s.usedBasisPoints / 100),
     level: s.level,
+  };
+}
+
+function catJson(c: { categoryId: string; label: string; amountSatang: Satang; count: number; shareBasisPoints: number }) {
+  return { id: c.categoryId, label: c.label, amount: money(c.amountSatang), count: c.count, percent: Math.floor(c.shareBasisPoints / 100) };
+}
+
+function dreamJson(d: DreamView) {
+  const g = d.progress.goal;
+  return {
+    id: g.id,
+    kind: g.dream,
+    name: g.name,
+    emoji: d.template.emoji,
+    mascot: d.template.mascot,
+    target: money(g.targetSatang),
+    saved: money(d.plan.savedSatang),
+    remaining: money(d.plan.remainingSatang),
+    targetDate: g.targetDate,
+    progressPercent: Math.floor(d.plan.progressBasisPoints / 100),
+    monthsLeft: d.plan.monthsLeft,
+    monthlyNeeded: money(d.plan.monthlyNeededSatang),
+    status: d.plan.status,
+    milestone: d.plan.milestone,
+    next: d.plan.next ? { percent: d.plan.next.percent, amountToGo: money(d.plan.next.amountToGoSatang) } : null,
+    coach: d.coach,
+    reserving: d.reserving,
+    illustrations: d.illustrations.map((i) => ({ ratePercent: i.rateBp / 100, monthly: money(i.monthlySatang), savesPerMonth: money(i.savesPerMonthSatang) })),
   };
 }

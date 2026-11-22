@@ -3,6 +3,7 @@
  * and renders a template — no financial math here.
  */
 import { addDays, formatThaiShort } from '../../../domain/dates.ts';
+import { dreamsCoachMessage } from '../flex/dreams.ts';
 import { previousPeriod } from '../../../domain/period.ts';
 import { getCategory, isKnownCategory } from '../../../domain/entities/categories.ts';
 import type { Transaction } from '../../../domain/entities/index.ts';
@@ -57,6 +58,9 @@ export async function showMonthSummary(ctx: HandlerContext, periodKey?: string):
     const key = ctx.deps.finance.periodFor(user!, v.start).key;
     const l = await ctx.deps.wealth.leftover(ctx.userId, key);
     if (l.leftoverSatang >= 10_000 && !l.swept) out.push(sweepMessage(key, l.leftoverSatang));
+    // the monthly coach rides along with the summary (same push, no extra quota)
+    const coach = dreamsCoachMessage(await ctx.deps.dreams.list(ctx.userId, ctx.today));
+    if (coach) out.push(coach);
   }
   return out;
 }
