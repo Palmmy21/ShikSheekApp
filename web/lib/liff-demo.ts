@@ -44,6 +44,30 @@ const ROUTES: Record<string, unknown> = {
   },
   '/me': { plan: { id: 'pro', label: 'Pro', source: 'trial', daysLeft: 9 }, displayName: 'ปาล์ม', cycleStartDay: 1, autoRecord: false, notifications: { dailySummary: true, weeklySummary: false, monthlySummary: true, billReminders: true, budgetAlerts: true, streakReminders: true }, today },
   '/categories': categories,
+  '/story': {
+    periodLabel: 'พ.ย. 2569',
+    persona: { id: 'golden', title: 'ไก่ทองคำ', tagline: 'เก็บได้เกินครึ่งของรายรับ ระดับตำนาน', mascot: 'celebrating', theme: 'gold' },
+    planBadge: 'PRO',
+    invite: { code: 'AB3XYZ', line: 'ทักไลน์ @541ywsff ใส่โค้ด AB3XYZ รับ Plus ฟรี 30 วัน' },
+    period: { start: '2026-11-01', end: '2026-11-30' },
+    cards: [
+      {
+        kind: 'recap', theme: 'gold', mascot: 'celebrating', eyebrow: 'เดือนนี้ของ ปาล์ม · พ.ย. 2569', title: 'ไก่ทองคำ', subtitle: 'เก็บได้เกินครึ่งของรายรับ ระดับตำนาน',
+        hero: { label: 'เก็บได้แล้ว', value: '฿20,680', private: true },
+        stats: [{ label: 'อัตราเก็บเงิน', value: '82%', private: false }, { label: 'จดไป', value: '47 รายการ', private: false }, { label: 'หมวดโปรด', value: 'อาหาร 43%', private: false }],
+        badge: 'ออมเก่งกว่า 87% ของผู้ใช้ชิกชิก',
+      },
+      {
+        kind: 'streak', theme: 'night', mascot: 'discipline', eyebrow: 'ปาล์ม จดเงินกับชิกชิก', title: 'ไฟลุกสองสัปดาห์ 🔥', subtitle: 'คนส่วนใหญ่เลิกจดไปตั้งแต่วันที่ 3',
+        hero: { label: 'จดติดกัน', value: '16 วัน', private: false }, stats: [{ label: 'เดือนนี้จดไป', value: '47 รายการ', private: false }], badge: null,
+      },
+      {
+        kind: 'goal', theme: 'green', mascot: 'planning', eyebrow: 'เป้าหมายเงินเก็บ', title: 'ไปแล้ว 30%', subtitle: 'ทีละนิด ใกล้เข้าไปทุกวัน',
+        hero: { label: 'เป้าหมาย', value: 'เที่ยวญี่ปุ่น', private: true },
+        stats: [{ label: 'เก็บแล้ว', value: '฿9,000', private: true }, { label: 'ความคืบหน้า', value: '30%', private: false }], badge: null,
+      },
+    ],
+  },
   '/dashboard': {
     period: { key: '2026-11', start: '2026-11-01', end: '2026-11-30' },
     available: m(1248000), dailyAllowance: m(96000), daysRemaining: 13, isNegative: false, hasIncome: true,

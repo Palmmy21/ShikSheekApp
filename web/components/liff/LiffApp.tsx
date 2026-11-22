@@ -11,6 +11,7 @@ import {
 import { CategoryIcon } from '@/components/icons';
 import { CategoryBars, DailyBars, Progress } from './Charts';
 import { Sheet, TxnSheet, type TxnInput } from './TxnSheet';
+import { StoryStudio } from './StoryStudio';
 
 type Tab = 'home' | 'txns' | 'bills' | 'plans' | 'settings';
 const TAB_IDS: readonly Tab[] = ['home', 'txns', 'bills', 'plans', 'settings'];
@@ -26,12 +27,22 @@ function refFromUrl(): string | null {
   return r && /^[A-Za-z0-9]{6}$/.test(r) ? r.toUpperCase() : null;
 }
 
-function tabFromUrl(): Tab | null {
+function tabParam(): string | null {
   if (typeof window === 'undefined') return null;
   const q = new URLSearchParams(window.location.search);
   let t = q.get('tab');
   const state = q.get('liff.state');
   if (!t && state) t = new URLSearchParams(state.replace(/^[^?]*\?/, '')).get('tab');
+  return t;
+}
+
+/** ?tab=story (from the chat's "แชร์ลงสตอรี่" button) opens the story-card studio over Home. */
+function storyFromUrl(): boolean {
+  return tabParam() === 'story';
+}
+
+function tabFromUrl(): Tab | null {
+  const t = tabParam();
   return t && (TAB_IDS as readonly string[]).includes(t) ? (t as Tab) : null;
 }
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
@@ -60,6 +71,7 @@ export default function LiffApp() {
   const [tab, setTab] = useState<Tab>(() => tabFromUrl() ?? 'home');
   const [version, setVersion] = useState(0);
   const [sheet, setSheet] = useState<{ open: boolean; editing: Txn | null }>({ open: false, editing: null });
+  const [story, setStory] = useState(false);
   const toast = useToast();
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -69,6 +81,7 @@ export default function LiffApp() {
         await initLiff();
         const fromUrl = tabFromUrl();
         if (fromUrl) setTab(fromUrl);
+        if (storyFromUrl()) setStory(true);
         // invited via ?ref=CODE → record the referral once (server validates everything)
         const ref = refFromUrl();
         if (ref) {
@@ -127,7 +140,7 @@ export default function LiffApp() {
   }
 
   const current = TABS.find((t) => t.id === tab)!;
-  const props = { me, categories, version, refresh, toast: toast.show, openEdit: (t: Txn) => setSheet({ open: true, editing: t }) };
+  const props = { me, categories, version, refresh, toast: toast.show, openEdit: (t: Txn) => setSheet({ open: true, editing: t }), openStory: () => setStory(true) };
   return (
     <div className="lf">
       <header className="lf-top">
@@ -167,6 +180,8 @@ export default function LiffApp() {
         ))}
       </nav>
 
+      {story && <StoryStudio onClose={() => setStory(false)} toast={toast.show} />}
+
       <TxnSheet open={sheet.open} editing={sheet.editing} onClose={() => setSheet({ open: false, editing: null })} categories={categories} today={me.today} onSubmit={saveTxn} onDelete={deleteTxn} />
 
       {toast.msg && (
@@ -197,6 +212,7 @@ interface ScreenProps {
   refresh: () => void;
   toast: (text: string, undo?: () => void) => void;
   openEdit: (t: Txn) => void;
+  openStory: () => void;
 }
 
 function useData<T>(path: string | null, version: number) {
@@ -222,7 +238,7 @@ function statusText(status: string, due: string) {
 }
 
 // ── HOME ──
-function HomeScreen({ me, version, goTo }: ScreenProps & { goTo: (t: Tab) => void }) {
+function HomeScreen({ me, version, goTo, openStory }: ScreenProps & { goTo: (t: Tab) => void }) {
   const { data: d, error } = useData<Dashboard>('/dashboard', version);
   const { data: rep } = useData<MonthReport>('/reports/month', version);
   if (!d) return <Loading error={error} />;
@@ -237,6 +253,14 @@ function HomeScreen({ me, version, goTo }: ScreenProps & { goTo: (t: Tab) => voi
         </div>
         <img src={`/mascot/${mood}.png`} alt="" width={96} height={96} />
       </section>
+      <button className="story-cta" onClick={openStory}>
+        <img src="/mascot/celebrating.png" alt="" width={48} height={48} />
+        <span>
+          <strong>เดือนนี้คุณเป็นไก่แบบไหน?</strong>
+          <small>ดูการ์ดสรุปของคุณ แล้วแชร์ลง IG สตอรี่</small>
+        </span>
+        <ChevronRight size={20} />
+      </button>
       {!d.hasIncome && <p className="hint">ยังไม่มีรายรับในรอบนี้ กด + แล้วเลือก &ldquo;รายรับ&rdquo; เพื่อเริ่มต้น</p>}
 
       <section className="stats">
@@ -562,7 +586,7 @@ interface ReferralInfo {
   streak: number;
 }
 
-function InviteCard({ toast }: { toast: ScreenProps['toast'] }) {
+function InviteCard({ toast, openStory }: { toast: ScreenProps['toast']; openStory: () => void }) {
   const [r, setR] = useState<ReferralInfo | null>(null);
   useEffect(() => {
     api<ReferralInfo>('/referral').then(setR).catch(() => {});
@@ -586,6 +610,7 @@ function InviteCard({ toast }: { toast: ScreenProps['toast'] }) {
       <p className="muted small">เพื่อนเข้าผ่านลิงก์ของคุณแล้วจดครบ {r.activationEntries} รายการ ได้ Plus ฟรีทั้งคู่ (สูงสุด 12 คน)</p>
       <button className="invite__code" onClick={copy} aria-label="คัดลอกโค้ด">{r.code}</button>
       <a className="btn btn--primary" href={share}>📤 แชร์ให้เพื่อนใน LINE</a>
+      <button className="btn" onClick={openStory}>✨ แชร์การ์ดลง IG สตอรี่</button>
       <p className="muted small">ชวนสำเร็จ {r.rewarded} คน{r.invited > r.rewarded ? ` · รอเพื่อนจดให้ครบอีก ${r.invited - r.rewarded} คน` : ''}</p>
     </section>
   );
@@ -689,7 +714,7 @@ function PlanCard({ toast }: { toast: ScreenProps['toast'] }) {
 }
 
 // ── SETTINGS ──
-function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me) => void }) {
+function SettingsScreen({ me, toast, onSaved, openStory }: ScreenProps & { onSaved: (m: Me) => void }) {
   const labels: Record<keyof Me['notifications'], [string, string]> = {
     dailySummary: ['สรุปรายวัน', 'ทุกวัน 21:00'],
     streakReminders: ['เตือนสตรีค 🔥', 'เตือน 20:00 เฉพาะวันที่ยังไม่ได้จด'],
@@ -722,7 +747,7 @@ function SettingsScreen({ me, toast, onSaved }: ScreenProps & { onSaved: (m: Me)
   return (
     <>
       <PlanCard toast={toast} />
-      <InviteCard toast={toast} />
+      <InviteCard toast={toast} openStory={openStory} />
       <section className="card">
         <h3>การจด</h3>
         <ul className="toggles">

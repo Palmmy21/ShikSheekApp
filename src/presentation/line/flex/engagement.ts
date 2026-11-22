@@ -111,3 +111,22 @@ export function streakLine(days: number): FlexComponent | null {
   if (days < 2) return null;
   return txt(`🔥 จดต่อเนื่อง ${days} วัน`, { size: 'sm', weight: 'bold', color: BRAND.deepRed });
 }
+
+/** LIFF deep link to the story-card studio, or null when LIFF is not configured. */
+export function storyLink(): string | null {
+  const liff = liffLink();
+  return liff ? `${liff}?tab=story` : null;
+}
+
+export function storyMessage(): Message {
+  const uri = storyLink();
+  if (!uri) return mascotSays('การ์ดสตอรี่ต้องเปิดผ่านแอปชิกชิก (LIFF) ซึ่งยังไม่ได้ตั้งค่าน้า', 'thinking');
+  return flex('การ์ดสรุปเดือนของคุณพร้อมแชร์ลงสตอรี่แล้ว ✨', bubble({
+    header: header('การ์ดสตอรี่ของคุณ', 'สรุปเดือนนี้ พร้อมลง IG ✨', mascotUrl('celebrating')),
+    body: [
+      txt('ชิกชิกสรุปเดือนของคุณเป็นการ์ดสวยๆ ขนาดสตอรี่ ดูว่าเดือนนี้คุณเป็น "ไก่แบบไหน" แล้วแชร์ให้เพื่อนอิจฉาเล่น 😎', { size: 'sm', wrap: true }),
+      txt('ซ่อนยอดเงินได้ก่อนแชร์ · รายรับไม่ขึ้นบนการ์ดเลย', { size: 'xs', color: BRAND.muted, wrap: true }),
+    ],
+    footer: [button({ type: 'uri', label: '✨ เปิดการ์ดของฉัน', uri }, 'primary')],
+  }));
+}

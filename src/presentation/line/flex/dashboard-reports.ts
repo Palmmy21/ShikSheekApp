@@ -149,7 +149,10 @@ export function summaryMessage(v: SummaryView, comment: string, mascot: MascotEx
     bubble({
       header: header(LABEL[v.label], title, mascotUrl(mascot)),
       body,
-      footer: [hbox([button(pb('ภาพรวม', 'dashboard'), 'primary', { flex: 1 }), button(pb('รายงานอื่น', 'reports'), 'secondary', { flex: 1 })], { spacing: 'sm' })],
+      footer: [
+        ...(v.label === 'month' && liffLink() ? [button({ type: 'uri' as const, label: '✨ แชร์สรุปลงสตอรี่', uri: `${liffLink()}?tab=story` }, 'primary')] : []),
+        hbox([button(pb('ภาพรวม', 'dashboard'), v.label === 'month' && liffLink() ? 'secondary' : 'primary', { flex: 1 }), button(pb('รายงานอื่น', 'reports'), 'secondary', { flex: 1 })], { spacing: 'sm' }),
+      ],
     }),
   );
 }

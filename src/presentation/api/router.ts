@@ -19,6 +19,7 @@ import { periodForDate, periodFromKey, previousPeriod } from '../../domain/perio
 import { describeRuleThai } from '../../domain/recurrence.ts';
 import { PLAN_PITCH, PRICES, REFERRAL_ACTIVATION_ENTRIES, REFERRAL_REWARD_DAYS } from '../../domain/plans.ts';
 import { inviteLink, shareText } from '../line/flex/engagement.ts';
+import { STORY_CARD_KINDS, type StoryCardKind } from '../../domain/calculations/story.ts';
 import type { IdTokenVerifier } from '../../infrastructure/line/id-token.ts';
 import { redactUserId, type AppDeps } from '../line/context.ts';
 
@@ -346,6 +347,13 @@ export async function handleApiRequest(req: Request, deps: AppDeps, opts: ApiOpt
       const b = await body(req, z.object({ code: z.string().max(12) }));
       const r = await deps.engagement.claim(userId, b.code);
       return json(r.status === 'ok' ? 200 : 409, r);
+    }
+    // ── story cards (share to IG/FB stories) ──
+    if (is('GET', 'story')) return json(200, await deps.story.deck(userId, today));
+    if (is('POST', 'story', 'shared')) {
+      const b = await body(req, z.object({ card: z.enum(STORY_CARD_KINDS as [StoryCardKind, ...StoryCardKind[]]), method: z.enum(['share', 'download']) }));
+      await deps.story.recordShare(userId, b.card, b.method);
+      return json(200, { ok: true });
     }
     if (is('POST', 'plan', 'interest')) {
       const b = await body(req, z.object({ plan: z.enum(['plus', 'pro']) }));

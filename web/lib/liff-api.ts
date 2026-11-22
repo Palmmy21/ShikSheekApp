@@ -189,3 +189,42 @@ export function thaiDate(iso: string, withYear = false): string {
   const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
   return `${d} ${THAI_MONTHS[m - 1]}${withYear ? ` ${String((y + 543) % 100).padStart(2, '0')}` : ''}`;
 }
+
+// ── story cards (shared to IG/FB stories) ──
+export type StoryTheme = 'gold' | 'green' | 'red' | 'cream' | 'night';
+export interface StoryValue {
+  label: string;
+  value: string;
+  /** reveals money or a personal name → masked when "ซ่อนยอดเงิน" is on */
+  private: boolean;
+}
+export interface StoryCard {
+  kind: 'recap' | 'streak' | 'goal';
+  theme: StoryTheme;
+  mascot: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  hero: StoryValue;
+  stats: StoryValue[];
+  badge: string | null;
+}
+export interface StoryDeck {
+  periodLabel: string;
+  persona: { id: string; title: string; tagline: string; mascot: string; theme: StoryTheme };
+  planBadge: 'PRO' | 'PLUS' | null;
+  invite: { code: string; line: string };
+  cards: StoryCard[];
+  period: { start: string; end: string };
+}
+
+/** Running inside the LINE app (LIFF in-app browser). */
+export function inLineClient(): boolean {
+  return !DEMO && liff.isInClient();
+}
+
+/** Open a URL in the phone's normal browser (Web Share works there even when LINE's browser lacks it). */
+export function openExternal(url: string): void {
+  if (!DEMO && liff.isInClient()) liff.openWindow({ url, external: true });
+  else window.open(url, '_blank', 'noopener');
+}

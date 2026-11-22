@@ -103,6 +103,34 @@ export function engagementRepo(sql: Sql) {
       });
     },
 
+    /**
+     * Savings rate (kept ÷ income, basis points, floored at 0) of every user with income between
+     * `start` and `end`. Aggregates only — used for the anonymous "out-saved X%" line on story cards.
+     */
+    async savingsRates(start: string, end: string): Promise<number[]> {
+      const rows = await sql.query<{ bp: unknown }>(
+        `select greatest(0, ((inc - exp) * 10000) / inc) as bp from (
+           select user_id,
+                  sum(amount_satang) filter (where type = 'income') as inc,
+                  coalesce(sum(amount_satang) filter (where type = 'expense'), 0) as exp
+           from transactions
+           where deleted_at is null and txn_date between $1 and $2
+           group by user_id
+         ) t where inc > 0`,
+        [start, end],
+      );
+      return rows.map((r) => Number(r.bp));
+    },
+
+    async recordStoryShare(userId: string, card: string, method: 'share' | 'download'): Promise<void> {
+      await sql.query(`insert into story_shares (user_id, card, method) values ($1, $2, $3)`, [userId, card, method]);
+    },
+
+    async storyShareCount(userId: string): Promise<number> {
+      const rows = await sql.query<{ n: unknown }>(`select count(*) as n from story_shares where user_id = $1`, [userId]);
+      return Number(rows[0]?.n ?? 0);
+    },
+
     /** Following users who want streak reminders. */
     async listStreakRecipients(): Promise<string[]> {
       const rows = await sql.query<{ line_user_id: string }>(`select line_user_id from users where is_following and notify_streak`);

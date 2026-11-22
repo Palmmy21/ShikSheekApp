@@ -581,3 +581,86 @@
 .invite__code { all: unset; box-sizing: border-box; text-align: center; font-size: 30px; font-weight: 800; letter-spacing: 6px; color: var(--red); background: var(--white); border: 2px dashed #f3c9c4; border-radius: 14px; padding: 10px; cursor: pointer; }
 .invite .btn { text-align: center; text-decoration: none; }
 .streak-chip { font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #ffe5e2; color: var(--red); }
+
+/* story cards (share to IG stories) */
+.story-cta {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: var(--brown);
+  background: linear-gradient(120deg, #ffe27a, #ffb627 55%, #ff7a59);
+  box-shadow: 0 10px 24px -12px rgba(233, 120, 40, 0.7);
+}
+.story-cta img { flex: none; animation: bob 2.4s ease-in-out infinite; }
+.story-cta span { display: grid; line-height: 1.3; }
+.story-cta strong { font-family: var(--font-display); font-weight: 700; font-size: 16.5px; }
+.story-cta small { font-size: 13px; color: rgba(57, 43, 39, 0.75); }
+.story-cta svg { margin-left: auto; flex: none; }
+
+.story {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(120% 80% at 50% 0%, #3d2660, #130a21 70%);
+  color: #fff;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.story__top { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px 6px; }
+.story__top div { display: grid; line-height: 1.25; }
+.story__top strong { font-family: var(--font-display); font-weight: 600; font-size: 19px; }
+.story__top small { color: rgba(255, 255, 255, 0.65); font-size: 12.5px; }
+.story__close { all: unset; cursor: pointer; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.story__error { margin: 8px 18px; color: #ffb4ab; font-size: 14px; }
+.story__rail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.story__rail::-webkit-scrollbar { display: none; }
+.story__slide { flex: 0 0 100%; scroll-snap-align: center; display: grid; place-items: center; padding: 8px 0; min-height: 0; }
+.story__img {
+  height: 100%;
+  max-height: 100%;
+  max-width: 86vw;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  -webkit-touch-callout: default;
+}
+.story__img--loading { display: grid; place-items: center; background: rgba(255, 255, 255, 0.06); }
+.story__img--loading img { animation: bob 2.4s ease-in-out infinite; opacity: 0.8; }
+.story__dots { display: flex; justify-content: center; gap: 8px; padding: 6px 0 2px; }
+.story__dots button { all: unset; cursor: pointer; width: 8px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.3); transition: width 0.2s; }
+.story__dots button.is-on { width: 22px; background: #ffd447; }
+.story__actions { display: grid; gap: 8px; padding: 10px 18px 14px; }
+.story__toggle {
+  all: unset;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13.5px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.story__toggle[aria-pressed='false'] { background: #ffd447; color: var(--brown); }
+.story__share { font-size: 17px; padding: 15px 18px; background: linear-gradient(100deg, #ff7a59, #e93636 45%, #c13584); }
+.story__row { display: flex; justify-content: center; gap: 4px; }
+.story__row .btn--ghost { color: rgba(255, 255, 255, 0.85); }
+.story__hint { text-align: center; font-size: 12.5px; color: rgba(255, 255, 255, 0.65); margin: 0; }

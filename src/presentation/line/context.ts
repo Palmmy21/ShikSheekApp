@@ -3,6 +3,7 @@ import type { PaymentService } from '../../application/services/payment-service.
 import type { RichMenuSync } from '../../application/services/rich-menu-sync.ts';
 import type { WealthService } from '../../application/services/wealth-service.ts';
 import type { EngagementService } from '../../application/services/engagement-service.ts';
+import type { StoryService } from '../../application/services/story-service.ts';
 import type { FinanceService } from '../../application/services/finance-service.ts';
 import type { FixedCostService } from '../../application/services/fixed-cost-service.ts';
 import type { TransactionService } from '../../application/services/transaction-service.ts';
@@ -36,6 +37,8 @@ export interface AppDeps {
   wealth: WealthService;
   /** streaks, referrals, retention rewards */
   engagement: EngagementService;
+  /** shareable story cards (IG/FB stories) */
+  story: StoryService;
   personality: PersonalityService;
   /** Optional Claude layer for messages the rule-based parser cannot understand. */
   ai?: AiClient;
